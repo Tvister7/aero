@@ -1,0 +1,2833 @@
+{
+    "consumes": [
+        "application/json"
+    ],
+    "produces": [
+        "application/json"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "Запись, баланс в занятиях и админка. Кроме страницы Swagger каждый запрос требует Authorization.",
+        "title": "Aero API",
+        "contact": {},
+        "version": "1"
+    },
+    "paths": {
+        "/admin/bookings/{id}/attendance": {
+            "post": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Не раньше чем за 30 минут до начала. Списание одно на активную явку. Снятие пишет обратную проводку.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Отметить явку",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Идентификатор записи",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Пришёл или снять отметку",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AttendanceInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AttendanceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/classes": {
+            "post": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "template_id остаётся пустым. Название, длительность и подпись стоимости снимаются с типа.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Создать занятие",
+                "parameters": [
+                    {
+                        "description": "Слот",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ClassInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ClassResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/classes/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "status cancelled отменяет слот и записи. Иной набор полей переносит слот. Записанным уходит сообщение бота.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Изменить занятие",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Идентификатор занятия",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Перенос или отмена",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ClassPatch"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ClassResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/classes/{id}/roster": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Только записи booked. Отменённый слот отвечает CLASS_NOT_FOUND.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Журнал занятия",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Идентификатор занятия",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/RosterResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/clients": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "q режет по вхождению в имя, телефон, ник и telegram id. Пустой q возвращает всех.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Список клиентов",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Подстрока поиска",
+                        "name": "q",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ClientsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/clients.csv": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "CSV RFC 4180. Первая строка: name,phone,username,telegram_id,balance,policy.",
+                "produces": [
+                    "text/csv"
+                ],
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Выгрузка клиентов",
+                "responses": {
+                    "200": {
+                        "description": "файл clients.csv",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/clients/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Карточка клиента",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Идентификатор клиента",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ClientResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Изменить режим баланса",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Идентификатор клиента",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "postpay или restricted",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/PolicyInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ClientResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/clients/{id}/credits": {
+            "post": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Каждый успешный вызов пишет новую проводку grant. Повтор запроса повторяет начисление.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Начислить занятия",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Идентификатор клиента",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Число занятий и пометка",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/GrantInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ClientResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/schedule": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Те же даты, что у клиента, плюс cancelled и поле status.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Расписание админа",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "2026-09-01",
+                        "description": "Начало диапазона, YYYY-MM-DD",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-09-07",
+                        "description": "Конец диапазона, включительно",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ClassesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/stats": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Даты включительно, календарь Asia/Tbilisi.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Сводка",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "2026-09-01",
+                        "description": "Начало, YYYY-MM-DD",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-09-30",
+                        "description": "Конец, включительно",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/StatsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/studio": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Контакты студии",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/StudioResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Все пять полей обязательны. Пустая строка стирает значение.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Сохранить контакты",
+                "parameters": [
+                    {
+                        "description": "Все пять полей",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Studio"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/StudioResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/templates": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Список шаблонов",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TemplatesResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "title копируется с типа. Повтор четвёрки тренер, название, день и время отвечает VALIDATION.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Создать шаблон",
+                "parameters": [
+                    {
+                        "description": "Шаблон",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/TemplateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TemplateResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/templates/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Уже созданные занятия этот вызов не меняет.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Изменить шаблон",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Идентификатор шаблона",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Меняющиеся поля",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/TemplateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TemplateResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/trainers": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Список тренеров",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TrainersResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Имя, которое уже есть, отвечает VALIDATION.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Создать тренера",
+                "parameters": [
+                    {
+                        "description": "Имя",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/TrainerInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TrainerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/trainers/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Изменить тренера",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Идентификатор тренера",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Меняющиеся поля",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/TrainerPatch"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TrainerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/training-types": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Список видов",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TypesResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Нужны title, duration_minutes, capacity, price_min и price_max. Цена остаётся подписью.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Создать вид",
+                "parameters": [
+                    {
+                        "description": "Вид",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/TypeInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TypeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/training-types/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Уже созданные занятия этот вызов не переписывает.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Изменить вид",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Идентификатор вида",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Меняющиеся поля",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/TypeInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TypeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/weeks": {
+            "post": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Пустое тело — понедельник следующей ISO-недели в Тбилиси. Повтор сходится в те же слоты.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Собрать неделю",
+                "parameters": [
+                    {
+                        "description": "Можно прислать пустое тело",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/WeekInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/WeekResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/bookings/{id}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Доступно строго больше чем за 6 часов до начала. Ровно 6 часов уже поздно.",
+                "tags": [
+                    "Клиент"
+                ],
+                "summary": "Отменить запись",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Идентификатор записи",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/CancelledResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/bookings/{id}/reschedule": {
+            "post": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Порог 6 часов считается по старому началу. Баланс не проверяется и не меняется.",
+                "tags": [
+                    "Клиент"
+                ],
+                "summary": "Перенести запись",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Идентификатор записи",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Новое занятие",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/RescheduleInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/RescheduledResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/classes/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Отменённое и неизвестное занятие отвечают CLASS_NOT_FOUND. Поля status в ответе нет.",
+                "tags": [
+                    "Клиент"
+                ],
+                "summary": "Карточка занятия",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Идентификатор занятия",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ClassResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/classes/{id}/bookings": {
+            "post": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Баланс не меняется. Пустые имя и телефон не стирают сохранённые. Ник берётся из initData.",
+                "tags": [
+                    "Клиент"
+                ],
+                "summary": "Записаться",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Идентификатор занятия",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Можно прислать пустое тело",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/ProfileInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/BookedResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/me": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "is_admin истинен, если telegram id есть в ADMIN_IDS. Новый человек создаётся с policy postpay.",
+                "tags": [
+                    "Клиент"
+                ],
+                "summary": "Профиль",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/MeResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Пустые имя и телефон уже сохранённые значения не стирают.",
+                "tags": [
+                    "Клиент"
+                ],
+                "summary": "Изменить профиль",
+                "parameters": [
+                    {
+                        "description": "Можно прислать пустое тело",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/ProfileInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/MeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/me/bookings": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Запись booked, занятие scheduled, starts_at ещё впереди. Сортировка по началу.",
+                "tags": [
+                    "Клиент"
+                ],
+                "summary": "Мои записи",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/MyBookingsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/me/ping": {
+            "post": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Пишет одну отметку открытия для сводки unique_users.",
+                "tags": [
+                    "Клиент"
+                ],
+                "summary": "Отметить открытие",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/OpenedResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/schedule": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Только scheduled, у которых тбилисская дата начала попадает в диапазон включительно.",
+                "tags": [
+                    "Клиент"
+                ],
+                "summary": "Расписание",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "2026-09-01",
+                        "description": "Начало диапазона, YYYY-MM-DD, Asia/Tbilisi",
+                        "name": "from",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "2026-09-07",
+                        "description": "Конец диапазона, включительно",
+                        "name": "to",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ClassesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/studio": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Адрес, телефон и ссылки. Пустая строка — поле не заполнено.",
+                "tags": [
+                    "Клиент"
+                ],
+                "summary": "Контакты студии",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/StudioResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "AttendanceInput": {
+            "description": "Отметка явки. true ставит или подтверждает явку, false снимает активную. Поле обязательно. Повтор true и снятие при отсутствии явки баланс не меняют.",
+            "type": "object",
+            "properties": {
+                "arrived": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "AttendanceResponse": {
+            "description": "Явка после отметки. attendance равен null, если активной явки нет.",
+            "type": "object",
+            "properties": {
+                "attendance": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AttendanceView"
+                        }
+                    ],
+                    "x-nullable": true
+                },
+                "balance": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "booking_id": {
+                    "type": "string",
+                    "example": "6ba7b814-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "AttendanceView": {
+            "description": "Активная явка. payment: paid, если до списания баланс был больше нуля, иначе unpaid.",
+            "type": "object",
+            "properties": {
+                "marked_at": {
+                    "type": "string",
+                    "example": "2026-09-03T19:05:00+04:00"
+                },
+                "payment": {
+                    "type": "string",
+                    "enum": [
+                        "paid",
+                        "unpaid"
+                    ],
+                    "example": "paid"
+                }
+            }
+        },
+        "BookedResponse": {
+            "description": "Запись создана. Баланс в этом ответе ещё прежний.",
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "booking_id": {
+                    "type": "string",
+                    "example": "6ba7b814-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "class": {
+                    "$ref": "#/definitions/ClassView"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "CancelledResponse": {
+            "description": "Запись отменена.",
+            "type": "object",
+            "properties": {
+                "booking_id": {
+                    "type": "string",
+                    "example": "6ba7b814-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "ClassInput": {
+            "description": "Разовое занятие. capacity можно не передавать: берётся вместимость типа.",
+            "type": "object",
+            "properties": {
+                "capacity": {
+                    "type": "integer",
+                    "example": 6
+                },
+                "starts_at": {
+                    "type": "string",
+                    "example": "2026-09-12T19:00:00+04:00"
+                },
+                "trainer_id": {
+                    "type": "string",
+                    "example": "6ba7b811-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "training_type_id": {
+                    "type": "string",
+                    "example": "6ba7b812-9dad-11d1-80b4-00c04fd430c8"
+                }
+            }
+        },
+        "ClassPatch": {
+            "description": "Перенос слота или его отмена. Если status равен cancelled, остальные поля игнорируются. Вернуть слот в scheduled этим объектом нельзя. capacity ниже числа текущих записей не принимается.",
+            "type": "object",
+            "properties": {
+                "capacity": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "starts_at": {
+                    "type": "string",
+                    "example": "2026-09-12T20:00:00+04:00"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "cancelled"
+                    ],
+                    "example": "cancelled"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Aero Yoga"
+                },
+                "trainer_id": {
+                    "type": "string",
+                    "example": "6ba7b811-9dad-11d1-80b4-00c04fd430c8"
+                }
+            }
+        },
+        "ClassResponse": {
+            "description": "Ответ с одним занятием.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/ClassView"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "ClassView": {
+            "description": "Занятие в ответе API. У клиента поля status нет. В админском расписании, создании, правке и журнале status равен scheduled или cancelled. price_min и price_max — снимок подписи на момент слота. На баланс они не переводятся.",
+            "type": "object",
+            "properties": {
+                "booked": {
+                    "description": "Число записей со статусом booked.",
+                    "type": "integer",
+                    "example": 2
+                },
+                "capacity": {
+                    "type": "integer",
+                    "example": 6
+                },
+                "ends_at": {
+                    "type": "string",
+                    "example": "2026-09-03T20:00:00+04:00"
+                },
+                "free_places": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "id": {
+                    "type": "string",
+                    "example": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "price_max": {
+                    "type": "string",
+                    "example": "40.00"
+                },
+                "price_min": {
+                    "type": "string",
+                    "example": "17.00"
+                },
+                "starts_at": {
+                    "description": "Начало, Asia/Tbilisi, ISO-8601 со смещением +04:00.",
+                    "type": "string",
+                    "example": "2026-09-03T19:00:00+04:00"
+                },
+                "status": {
+                    "description": "Только админские ответы. У клиента поле отсутствует.",
+                    "type": "string",
+                    "enum": [
+                        "scheduled",
+                        "cancelled"
+                    ],
+                    "example": "scheduled"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Aero Yoga"
+                },
+                "trainer": {
+                    "$ref": "#/definitions/TrainerRef"
+                }
+            }
+        },
+        "ClassesResponse": {
+            "description": "Ответ со списком занятий по starts_at.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ClassView"
+                    }
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "ClientCard": {
+            "description": "Клиент и его проводки, новые сверху.",
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "id": {
+                    "type": "string",
+                    "example": "6ba7b815-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "ledger": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/LedgerView"
+                    }
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Анна"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+995555000000"
+                },
+                "policy": {
+                    "type": "string",
+                    "enum": [
+                        "postpay",
+                        "restricted"
+                    ],
+                    "example": "postpay"
+                },
+                "telegram_id": {
+                    "type": "string",
+                    "example": "1001"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "anna"
+                }
+            }
+        },
+        "ClientResponse": {
+            "description": "Карточка клиента.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/ClientCard"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "ClientSummary": {
+            "description": "Строка списка клиентов.",
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "type": "integer",
+                    "example": 4
+                },
+                "id": {
+                    "type": "string",
+                    "example": "6ba7b815-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Анна"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+995555000000"
+                },
+                "policy": {
+                    "type": "string",
+                    "enum": [
+                        "postpay",
+                        "restricted"
+                    ],
+                    "example": "postpay"
+                },
+                "telegram_id": {
+                    "type": "string",
+                    "example": "1001"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "anna"
+                }
+            }
+        },
+        "ClientsResponse": {
+            "description": "Список клиентов.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ClientSummary"
+                    }
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "ErrorBody": {
+            "description": "Ошибка API. ok всегда false. Тексты: UNAUTHORIZED «Откройте приложение заново из Telegram», FORBIDDEN «Недостаточно прав», VALIDATION «Проверьте поля», CLASS_NOT_FOUND «Занятие не найдено», NEW_CLASS_NOT_FOUND «Новое занятие недоступно», BOOKING_NOT_FOUND «Запись не найдена», CLASS_STARTED «Занятие уже началось», NO_PLACES «Свободных мест нет», ALREADY_BOOKED «Вы уже записаны», CUTOFF_EXCEEDED «Отмена и перенос доступны не позднее чем за 6 часов», SAME_CLASS «Это то же занятие», NO_CREDITS «Занятия на балансе закончились», ATTENDANCE_TOO_EARLY «Отметить явку можно за 30 минут до начала», INTERNAL «Не удалось выполнить запрос».",
+            "type": "object",
+            "properties": {
+                "error_code": {
+                    "type": "string",
+                    "enum": [
+                        "UNAUTHORIZED",
+                        "FORBIDDEN",
+                        "VALIDATION",
+                        "CLASS_NOT_FOUND",
+                        "NEW_CLASS_NOT_FOUND",
+                        "BOOKING_NOT_FOUND",
+                        "CLASS_STARTED",
+                        "NO_PLACES",
+                        "ALREADY_BOOKED",
+                        "CUTOFF_EXCEEDED",
+                        "SAME_CLASS",
+                        "NO_CREDITS",
+                        "ATTENDANCE_TOO_EARLY",
+                        "INTERNAL"
+                    ],
+                    "example": "NO_CREDITS"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Занятия на балансе закончились"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "GrantInput": {
+            "description": "Начисление занятий. delta — целое не меньше 1. Каждый вызов пишет новую проводку grant.",
+            "type": "object",
+            "properties": {
+                "delta": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "note": {
+                    "type": "string",
+                    "example": "пакет сентябрь"
+                }
+            }
+        },
+        "LedgerView": {
+            "description": "Проводка баланса. delta +N начисляет занятия, −1 списывает явку, +1 возвращает снятие явки. booking_id пустой у начисления.",
+            "type": "object",
+            "properties": {
+                "booking_id": {
+                    "type": "string",
+                    "x-nullable": true,
+                    "example": "6ba7b814-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-09-01T12:00:00+04:00"
+                },
+                "delta": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "id": {
+                    "type": "string",
+                    "example": "6ba7b816-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "note": {
+                    "type": "string",
+                    "example": "пакет сентябрь"
+                },
+                "reason": {
+                    "type": "string",
+                    "enum": [
+                        "grant",
+                        "attend",
+                        "reversal"
+                    ],
+                    "example": "grant"
+                }
+            }
+        },
+        "Me": {
+            "description": "Профиль человека, открывшего Mini App. id наружу не отдаётся.",
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "description": "Сумма проводок. Запись на занятие это число не уменьшает.",
+                    "type": "integer",
+                    "example": 4
+                },
+                "is_admin": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Анна"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+995555000000"
+                },
+                "policy": {
+                    "description": "postpay разрешает запись в долг. restricted запрещает запись при балансе 0 и ниже.",
+                    "type": "string",
+                    "enum": [
+                        "postpay",
+                        "restricted"
+                    ],
+                    "example": "postpay"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "anna"
+                }
+            }
+        },
+        "MeResponse": {
+            "description": "Ответ с профилем.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/Me"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "MyBooking": {
+            "description": "Будущая запись клиента.",
+            "type": "object",
+            "properties": {
+                "booking_id": {
+                    "type": "string",
+                    "example": "6ba7b814-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "class": {
+                    "$ref": "#/definitions/ClassView"
+                }
+            }
+        },
+        "MyBookingsResponse": {
+            "description": "Будущие записи клиента.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/MyBooking"
+                    }
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "OpenedResponse": {
+            "description": "Отметка открытия приложения принята.",
+            "type": "object",
+            "properties": {
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "PolicyInput": {
+            "description": "Режим баланса: postpay или restricted.",
+            "type": "object",
+            "properties": {
+                "policy": {
+                    "type": "string",
+                    "enum": [
+                        "postpay",
+                        "restricted"
+                    ],
+                    "example": "restricted"
+                }
+            }
+        },
+        "ProfileInput": {
+            "description": "Имя и телефон. Пустая строка и отсутствие поля не стирают сохранённое значение. Ник из этого объекта не читается: он берётся из initData.",
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "Анна"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+995555000000"
+                }
+            }
+        },
+        "RescheduleInput": {
+            "description": "Занятие, на которое переносится запись.",
+            "type": "object",
+            "properties": {
+                "class_id": {
+                    "type": "string",
+                    "example": "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+                }
+            }
+        },
+        "RescheduledResponse": {
+            "description": "Запись перенесена на другое занятие.",
+            "type": "object",
+            "properties": {
+                "booking_id": {
+                    "type": "string",
+                    "example": "6ba7b814-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "class": {
+                    "$ref": "#/definitions/ClassView"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "Roster": {
+            "description": "Журнал занятия: слот и записи со статусом booked.",
+            "type": "object",
+            "properties": {
+                "bookings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RosterBooking"
+                    }
+                },
+                "class": {
+                    "$ref": "#/definitions/ClassView"
+                }
+            }
+        },
+        "RosterBooking": {
+            "description": "Одна запись в журнале занятия. attendance равен null, пока явку не поставили.",
+            "type": "object",
+            "properties": {
+                "attendance": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AttendanceView"
+                        }
+                    ],
+                    "x-nullable": true
+                },
+                "booking_id": {
+                    "type": "string",
+                    "example": "6ba7b814-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "client_id": {
+                    "type": "string",
+                    "example": "6ba7b815-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Анна"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+995555000000"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "anna"
+                }
+            }
+        },
+        "RosterResponse": {
+            "description": "Журнал занятия.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/Roster"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "Stats": {
+            "description": "Сводка за включительный диапазон дат Asia/Tbilisi.",
+            "type": "object",
+            "properties": {
+                "arrivals": {
+                    "type": "integer",
+                    "example": 70
+                },
+                "bookings_cancelled": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "bookings_created": {
+                    "type": "integer",
+                    "example": 90
+                },
+                "from": {
+                    "type": "string",
+                    "example": "2026-09-01"
+                },
+                "no_shows": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "to": {
+                    "type": "string",
+                    "example": "2026-09-30"
+                },
+                "unique_users": {
+                    "type": "integer",
+                    "example": 40
+                },
+                "unpaid_visits": {
+                    "type": "integer",
+                    "example": 5
+                }
+            }
+        },
+        "StatsResponse": {
+            "description": "Сводка периода.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/Stats"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "Studio": {
+            "description": "Контакты. Пустая строка значит «не заполнено». В PUT нужны все пять полей.",
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "example": "ул. Пример, 1"
+                },
+                "contact_url": {
+                    "type": "string",
+                    "example": "https://t.me/aero"
+                },
+                "instagram_url": {
+                    "type": "string",
+                    "example": "https://instagram.com/aero"
+                },
+                "map_url": {
+                    "type": "string",
+                    "example": "https://maps.example/aero"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+995555000000"
+                }
+            }
+        },
+        "StudioResponse": {
+            "description": "Ответ с карточкой студии.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/Studio"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "Template": {
+            "description": "Еженедельный слот. weekday: 1 понедельник … 7 воскресенье. start_time — местное HH:MM.",
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "capacity": {
+                    "type": "integer",
+                    "example": 6
+                },
+                "id": {
+                    "type": "string",
+                    "example": "6ba7b813-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "19:00"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Aero Yoga"
+                },
+                "trainer_id": {
+                    "type": "string",
+                    "example": "6ba7b811-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "training_type_id": {
+                    "type": "string",
+                    "example": "6ba7b812-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "weekday": {
+                    "type": "integer",
+                    "example": 4
+                }
+            }
+        },
+        "TemplateInput": {
+            "description": "Поля шаблона. При создании нужны trainer_id, training_type_id, weekday и start_time. capacity можно опустить. title копируется с типа. Правка шаблона не меняет уже созданные занятия.",
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "capacity": {
+                    "type": "integer",
+                    "example": 6
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "19:00"
+                },
+                "trainer_id": {
+                    "type": "string",
+                    "example": "6ba7b811-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "training_type_id": {
+                    "type": "string",
+                    "example": "6ba7b812-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "weekday": {
+                    "type": "integer",
+                    "example": 4
+                }
+            }
+        },
+        "TemplateResponse": {
+            "description": "Один шаблон.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/Template"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "TemplatesResponse": {
+            "description": "Список шаблонов.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Template"
+                    }
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "Trainer": {
+            "description": "Тренер студии.",
+            "type": "object",
+            "properties": {
+                "active": {
+                    "description": "false скрывает тренера из новых шаблонов. Уже созданные занятия остаются.",
+                    "type": "boolean",
+                    "example": true
+                },
+                "id": {
+                    "type": "string",
+                    "example": "6ba7b811-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "name": {
+                    "description": "Имя на экране расписания. Уникально.",
+                    "type": "string",
+                    "example": "Лилия"
+                }
+            }
+        },
+        "TrainerInput": {
+            "description": "Новый тренер. После создания active равен true.",
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "Лилия"
+                }
+            }
+        },
+        "TrainerPatch": {
+            "description": "Правка тренера. Отсутствующее поле не меняется. Чужое занятое имя отклоняется.",
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Лилия"
+                }
+            }
+        },
+        "TrainerRef": {
+            "description": "Тренер внутри занятия.",
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "6ba7b811-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Лилия"
+                }
+            }
+        },
+        "TrainerResponse": {
+            "description": "Один тренер.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/Trainer"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "TrainersResponse": {
+            "description": "Список тренеров.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Trainer"
+                    }
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "TrainingType": {
+            "description": "Вид занятия. Цена — подпись на экране, не число занятий на балансе.",
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "capacity": {
+                    "description": "Вместимость по умолчанию для новых шаблонов и разовых занятий.",
+                    "type": "integer",
+                    "example": 6
+                },
+                "duration_minutes": {
+                    "description": "Длительность одного слота, от 1 до 600 минут.",
+                    "type": "integer",
+                    "example": 60
+                },
+                "id": {
+                    "type": "string",
+                    "example": "6ba7b812-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "price_max": {
+                    "description": "Верхняя подпись стоимости, не меньше price_min.",
+                    "type": "string",
+                    "example": "40.00"
+                },
+                "price_min": {
+                    "description": "Нижняя подпись стоимости, два знака после точки.",
+                    "type": "string",
+                    "example": "17.00"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Aero Yoga"
+                }
+            }
+        },
+        "TypeInput": {
+            "description": "Поля вида занятия без id. При создании нужны title, duration_minutes, capacity, price_min и price_max. При правке передаются только меняющиеся поля. Уже созданные слоты правка не переписывает.",
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "capacity": {
+                    "type": "integer",
+                    "example": 6
+                },
+                "duration_minutes": {
+                    "type": "integer",
+                    "example": 60
+                },
+                "price_max": {
+                    "type": "string",
+                    "example": "40.00"
+                },
+                "price_min": {
+                    "type": "string",
+                    "example": "17.00"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Aero Stretching"
+                }
+            }
+        },
+        "TypeResponse": {
+            "description": "Один вид занятия.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/TrainingType"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "TypesResponse": {
+            "description": "Список видов занятий.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/TrainingType"
+                    }
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "WeekInput": {
+            "description": "Неделя генерации. Пустой week_start — понедельник следующей ISO-недели в Тбилиси. Переданная дата приводится к понедельнику своей недели.",
+            "type": "object",
+            "properties": {
+                "week_start": {
+                    "type": "string",
+                    "example": "2026-09-14"
+                }
+            }
+        },
+        "WeekResponse": {
+            "description": "Итог генерации недели. Поля лежат рядом с ok, не внутри data.",
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "integer",
+                    "example": 8
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "updated": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "week_end": {
+                    "type": "string",
+                    "example": "2026-09-20"
+                },
+                "week_start": {
+                    "type": "string",
+                    "example": "2026-09-14"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "TMA": {
+            "description": "Значение заголовка: «tma » и initData из Telegram.WebApp.initData. Префикс tma с пробелом обязателен.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    },
+    "tags": [
+        {
+            "description": "Расписание, запись, профиль и контакты. Нужен initData.",
+            "name": "Клиент"
+        },
+        {
+            "description": "Тренеры, слоты, явка и баланс. Telegram id должен быть в ADMIN_IDS.",
+            "name": "Админ"
+        }
+    ]
+}
