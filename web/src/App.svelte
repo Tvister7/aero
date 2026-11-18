@@ -47,8 +47,11 @@
 
   let route = $derived(parse(hash))
   let me = $derived(getMe())
-  let admin = $derived(Boolean(me.data?.is_admin))
-  let showSwitch = roleSwitchVisible()
+  let serverAdmin = $derived(Boolean(me.data?.is_admin))
+  let preview = roleSwitchVisible()
+  let clientView = $state(false)
+  let admin = $derived(preview ? serverAdmin : serverAdmin && !clientView)
+  let showSwitch = $derived(preview || serverAdmin)
 
   let header = $state<HTMLElement | undefined>(undefined)
 
@@ -76,7 +79,8 @@
   })
 
   function choose(asAdmin: boolean) {
-    setPreviewAdmin(asAdmin)
+    if (preview) setPreviewAdmin(asAdmin)
+    else clientView = !asAdmin
     location.hash = asAdmin ? '#/admin' : '#/'
   }
 </script>
