@@ -9,4 +9,5 @@ fi
 dir=$(dirname "$DATA_PATH")
 mkdir -p "$dir"
 chown -R aero:aero "$dir"
+export HOME=/home/aero
 exec su-exec aero aero "$@"

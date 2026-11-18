@@ -6,7 +6,8 @@
 // типы и шаблоны из seed_data.sql.
 //
 // Обязательны BOT_TOKEN и DATA_PATH. ADMIN_IDS — telegram id через запятую.
-// ADDR по умолчанию 127.0.0.1:8080. CORS_ORIGIN — origin статики.
+// ADDR по умолчанию 127.0.0.1:8080. Снаружи Caddy принимает HTTPS на порту 8181 и проксирует сюда.
+// CORS_ORIGIN — origin Mini App, целиком и с https.
 // Токен бота и сырой initData в логи не пишутся.
 //
 //go:generate go tool swag init -g cmd/aero/main.go -o ../../internal/httpapi/docs --parseInternal --parseDependency --useStructName --dir ../.. --exclude internal/httpapi/docs
