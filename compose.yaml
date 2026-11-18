@@ -21,7 +21,7 @@ services:
       DOMAIN: ${DOMAIN:-tvister7.tplinkdns.com}
     ports:
       - "80:80"
-      - "8181:8181"
+      - "8080:8080"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
