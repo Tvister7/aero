@@ -1,17 +1,28 @@
 <script lang="ts">
   import { getStudio, putStudio } from '../api'
 
-  let studio = getStudio().data
-  let address = $state(studio.address)
-  let phone = $state(studio.phone)
-  let instagram = $state(studio.instagram_url)
-  let contact = $state(studio.contact_url)
-  let map = $state(studio.map_url)
+  let studio = $derived(getStudio())
+  let address = $state('')
+  let phone = $state('')
+  let instagram = $state('')
+  let contact = $state('')
+  let map = $state('')
   let notice = $state('')
+  let filled = $state(false)
 
-  function save(event: SubmitEvent) {
+  $effect(() => {
+    if (filled || studio.pending) return
+    address = studio.data.address
+    phone = studio.data.phone
+    instagram = studio.data.instagram_url
+    contact = studio.data.contact_url
+    map = studio.data.map_url
+    filled = true
+  })
+
+  async function save(event: SubmitEvent) {
     event.preventDefault()
-    const response = putStudio({
+    const response = await putStudio({
       address,
       phone,
       instagram_url: instagram,

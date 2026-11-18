@@ -15,7 +15,7 @@ export function balanceText(balance: number): string {
 }
 
 export function policyText(policy: BookingPolicy): string {
-  return policy === 'restricted' ? 'только пакет' : 'можно в долг'
+  return policy === 'restricted' ? 'абонемент' : 'постоплата'
 }
 
 export function priceLabel(min: string, max: string): string {

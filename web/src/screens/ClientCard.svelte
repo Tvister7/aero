@@ -11,9 +11,9 @@
 
   const reasons = { grant: 'начисление', attend: 'явка', reversal: 'снятие явки' }
 
-  function grant(event: SubmitEvent) {
+  async function grant(event: SubmitEvent) {
     event.preventDefault()
-    const response = grantCredits(clientId, Number(delta), note)
+    const response = await grantCredits(clientId, Number(delta), note)
     error = response.ok ? '' : response.message
     if (response.ok) note = ''
   }
@@ -32,11 +32,11 @@
       value={card.data.policy}
       onchange={(event: Event) => {
         const value = (event.currentTarget as HTMLSelectElement).value
-        if (value === 'postpay' || value === 'restricted') patchClient(clientId, value)
+        if (value === 'postpay' || value === 'restricted') void patchClient(clientId, value)
       }}
     >
-      <option value="postpay">можно в долг</option>
-      <option value="restricted">только пакет</option>
+      <option value="postpay">постоплата</option>
+      <option value="restricted">абонемент</option>
     </select>
     <p class="muted">Сейчас: {policyText(card.data.policy)}</p>
   </article>

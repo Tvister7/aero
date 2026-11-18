@@ -21,7 +21,11 @@ func (d *DB) Me(ctx context.Context, now time.Time, user User) (Me, error) {
 		if err != nil {
 			return err
 		}
-		me = meFrom(client, balance)
+		visited, err := hasVisit(ctx, tx, client.ID)
+		if err != nil {
+			return err
+		}
+		me = meFrom(client, balance, visited)
 		return nil
 	})
 	return me, err
@@ -42,14 +46,32 @@ func (d *DB) PatchMe(ctx context.Context, now time.Time, user User, name, phone 
 		if err != nil {
 			return err
 		}
-		me = meFrom(client, balance)
+		visited, err := hasVisit(ctx, tx, client.ID)
+		if err != nil {
+			return err
+		}
+		me = meFrom(client, balance, visited)
 		return nil
 	})
 	return me, err
 }
 
-func meFrom(client domain.Client, balance int) Me {
-	return Me{ID: client.ID, Name: client.Name, Phone: client.Phone, Username: client.Username, Balance: balance, Policy: client.Policy}
+func hasVisit(ctx context.Context, tx *sql.Tx, clientID string) (bool, error) {
+	var visited int
+	err := tx.QueryRowContext(ctx, `
+		select exists(
+			select 1 from attendances a
+			join bookings b on b.id = a.booking_id
+			where b.client_id = ?
+		)`, clientID).Scan(&visited)
+	return visited == 1, err
+}
+
+func meFrom(client domain.Client, balance int, visited bool) Me {
+	return Me{
+		ID: client.ID, Name: client.Name, Phone: client.Phone, Username: client.Username,
+		Balance: balance, Policy: client.Policy, Visited: visited,
+	}
 }
 
 func (d *DB) Ping(ctx context.Context, now time.Time, user User) error {

@@ -14,6 +14,7 @@ create table if not exists training_types (
   price_min text not null,
   price_max text not null,
   active integer not null check (active in (0, 1)),
+  color text not null default '',
   created_at text not null
 );
 

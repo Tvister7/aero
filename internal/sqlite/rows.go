@@ -18,9 +18,10 @@ type querier interface {
 const classSelect = `
 select c.id, c.title, t.id, t.name, c.starts_at, c.ends_at, c.capacity,
        (select count(*) from bookings b where b.class_id = c.id and b.status = 'booked'),
-       c.price_min, c.price_max, c.status
+       c.price_min, c.price_max, c.status, ty.color
 from classes c
-join trainers t on t.id = c.trainer_id`
+join trainers t on t.id = c.trainer_id
+join training_types ty on ty.id = c.training_type_id`
 
 func loadClass(ctx context.Context, q querier, id string) (domain.Class, error) {
 	var class domain.Class
@@ -60,7 +61,7 @@ func scanClass(row scanner, admin bool) (ClassView, error) {
 	var start, end, status string
 	err := row.Scan(
 		&view.ID, &view.Title, &view.Trainer.ID, &view.Trainer.Name, &start, &end,
-		&view.Capacity, &view.Booked, &view.PriceMin, &view.PriceMax, &status,
+		&view.Capacity, &view.Booked, &view.PriceMin, &view.PriceMax, &status, &view.Color,
 	)
 	if err != nil {
 		return ClassView{}, err

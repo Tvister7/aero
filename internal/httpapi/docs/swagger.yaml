@@ -126,6 +126,11 @@ definitions:
       capacity:
         example: 6
         type: integer
+      color:
+        description: Цвет типа занятия. Хранится на типе, поэтому скрытие другого
+          типа его не меняет.
+        example: '#5c7a3a'
+        type: string
       ends_at:
         example: "2026-09-03T20:00:00+04:00"
         type: string
@@ -351,6 +356,10 @@ definitions:
       username:
         example: anna
         type: string
+      visited:
+        description: Была хотя бы одна явка, в том числе позже снятая.
+        example: false
+        type: boolean
     type: object
   MeResponse:
     description: Ответ с профилем.
@@ -684,6 +693,11 @@ definitions:
         description: Вместимость по умолчанию для новых шаблонов и разовых занятий.
         example: 6
         type: integer
+      color:
+        description: Цвет индикации. Назначается при создании и не меняется, когда
+          другие типы скрывают.
+        example: '#5c7a3a'
+        type: string
       duration_minutes:
         description: Длительность одного слота, от 1 до 600 минут.
         example: 60
@@ -1764,7 +1778,8 @@ paths:
   /me:
     get:
       description: is_admin истинен, если telegram id есть в ADMIN_IDS. Новый человек
-        создаётся с policy postpay.
+        создаётся с policy postpay. visited истинен, если была хотя бы одна явка,
+        в том числе позже снятая.
       responses:
         "200":
           description: OK

@@ -50,7 +50,20 @@
   let admin = $derived(Boolean(me.data?.is_admin))
   let showSwitch = roleSwitchVisible()
 
+  let header = $state<HTMLElement | undefined>(undefined)
+
   $effect(() => {
+    const node = header
+    if (!node) return
+    const apply = () => node.parentElement?.style.setProperty('--top-h', `${node.offsetHeight}px`)
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(node)
+    return () => observer.disconnect()
+  })
+
+  $effect(() => {
+    if (me.pending) return
     if (route.area === 'admin' && !admin) location.hash = '#/'
   })
 
@@ -58,9 +71,7 @@
     if (route.name === 'class') return '#/'
     if (route.name === 'admin-class') return '#/admin/schedule'
     if (route.name === 'client') return '#/admin/clients'
-    if (route.name.startsWith('admin-') && route.name !== 'admin-roster' && route.name !== 'admin-schedule' && route.name !== 'admin-clients') {
-      return '#/admin'
-    }
+    if (route.name.startsWith('admin-')) return '#/admin'
     return ''
   })
 
@@ -71,7 +82,7 @@
 </script>
 
 <div class="shell">
-  <header class="top">
+  <header class="top" bind:this={header}>
     {#if back}
       <a class="back" href={back}>Назад</a>
     {:else}

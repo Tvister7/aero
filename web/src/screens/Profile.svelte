@@ -8,15 +8,15 @@
   let filled = $state(false)
 
   $effect(() => {
-    if (filled || !me.data) return
+    if (filled || me.pending || !me.data) return
     name = me.data.name ?? ''
     phone = me.data.phone ?? ''
     filled = true
   })
 
-  function save(event: SubmitEvent) {
+  async function save(event: SubmitEvent) {
     event.preventDefault()
-    patchMe({ name, phone })
+    await patchMe({ name, phone })
   }
 </script>
 
@@ -27,6 +27,9 @@
     <p>Не хватает {Math.abs(me.data.balance)} занятий до нуля.</p>
   {/if}
   <p class="meta">Режим записи: {policyText(me.data.policy)}</p>
+  {#if me.data.visited && me.data.balance <= 0}
+    <p data-testid="empty-balance">На балансе нет занятий.</p>
+  {/if}
   {#if me.data.username}<p class="meta">@{me.data.username}</p>{/if}
 </article>
 

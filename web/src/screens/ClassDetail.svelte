@@ -13,15 +13,15 @@
   let done = $state('')
 
   $effect(() => {
-    if (filled || !me.data) return
+    if (filled || me.pending || !me.data) return
     name = me.data.name ?? ''
     phone = me.data.phone ?? ''
     filled = true
   })
 
-  function submit(event: SubmitEvent) {
+  async function submit(event: SubmitEvent) {
     event.preventDefault()
-    const response = bookClass(classId, { name, phone })
+    const response = await bookClass(classId, { name, phone })
     if (!response.ok) {
       error = response.message
       done = ''
@@ -33,7 +33,7 @@
 </script>
 
 {#if !card.ok}
-  <p class="card error">{card.message}</p>
+  {#if card.message}<p class="card error">{card.message}</p>{/if}
 {:else}
   <article class="card">
     <h2>{card.data.title}</h2>
@@ -43,7 +43,9 @@
     {#if priceLabel(card.data.price_min, card.data.price_max)}
       <p class="price">стоимость {priceLabel(card.data.price_min, card.data.price_max)}</p>
     {/if}
-    <p class="muted">На баланс эта подпись не влияет.</p>
+    {#if me.data.visited && me.data.balance <= 0}
+      <p data-testid="empty-balance">На балансе нет занятий.</p>
+    {/if}
   </article>
 
   <form class="card" onsubmit={submit}>

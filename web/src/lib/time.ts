@@ -83,3 +83,44 @@ export function weekdayName(weekday: number): string {
 export function hoursUntil(iso: string): number {
   return (new Date(iso).getTime() - Date.now()) / 3600000
 }
+
+export function formatShortDate(dateKey: string): string {
+  const [, month, day] = dateKey.split('-')
+  return `${day}.${month}`
+}
+
+export function formatWeekRange(start: string, end: string): string {
+  return `${formatShortDate(start)}–${formatShortDate(end)}`
+}
+
+export function monthKeyOf(dateKey: string): string {
+  return dateKey.slice(0, 7)
+}
+
+export function monthBounds(month: string): { start: string; end: string } {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const last = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate()
+  return { start: `${month}-01`, end: `${month}-${String(last).padStart(2, '0')}` }
+}
+
+export function shiftMonth(month: string, delta: number): string {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const date = new Date(Date.UTC(year, monthNumber - 1 + delta, 1))
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+export function monthTitle(month: string): string {
+  const [year, monthNumber] = month.split('-').map(Number)
+  return new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(year, monthNumber - 1, 1)),
+  )
+}
+
+export function monthCells(month: string): string[] {
+  const { start, end } = monthBounds(month)
+  const gridStart = mondayKey(start)
+  const gridEnd = addDays(mondayKey(end), 6)
+  const days: string[] = []
+  for (let day = gridStart; day <= gridEnd; day = addDays(day, 1)) days.push(day)
+  return days
+}

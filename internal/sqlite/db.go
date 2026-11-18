@@ -69,7 +69,7 @@ func (d *DB) migrate(ctx context.Context) error {
 			return fmt.Errorf("schema: %w", err)
 		}
 	}
-	return nil
+	return d.write(ctx, func(tx *sql.Tx) error { return ensureTypeColors(ctx, tx) })
 }
 
 func (d *DB) write(ctx context.Context, fn func(*sql.Tx) error) error {

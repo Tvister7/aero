@@ -6,8 +6,8 @@
   let to = $state(todayKey())
   let report = $derived(stats(from, to).data)
 
-  function download() {
-    const blob = new Blob([clientsCsv()], { type: 'text/csv;charset=utf-8' })
+  async function download() {
+    const blob = new Blob([await clientsCsv()], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url

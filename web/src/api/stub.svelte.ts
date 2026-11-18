@@ -16,6 +16,7 @@ import type {
   StudioProfile,
   TrainingType,
 } from './types'
+import { nextTypeColor } from '../lib/color'
 import { money } from '../lib/text'
 import {
   addDays,
@@ -121,6 +122,7 @@ function classView(row: ClassRow): ClassView {
     free_places: row.capacity - booked,
     price_min: row.price_min,
     price_max: row.price_max,
+    color: db.types.find((item) => item.id === row.training_type_id)?.color ?? '',
     status: row.status,
   }
 }
@@ -162,7 +164,7 @@ function placeBooking(classRow: ClassRow, client: Client, { seed = false }: { se
 
 export function getStudio() {
   watch()
-  return { ok: true as const, data: { ...db.studio } }
+  return { ok: true as const, data: { ...db.studio }, pending: false }
 }
 
 export function getSchedule(from: string, to: string) {
@@ -171,7 +173,7 @@ export function getSchedule(from: string, to: string) {
     .filter((row) => row.status === 'scheduled' && inRange(row.starts_at, from, to))
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
     .map((row) => classView(row))
-  return { ok: true as const, data }
+  return { ok: true as const, data, pending: false }
 }
 
 export function getAdminSchedule(from: string, to: string) {
@@ -180,7 +182,7 @@ export function getAdminSchedule(from: string, to: string) {
     .filter((row) => inRange(row.starts_at, from, to))
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
     .map((row) => classView(row))
-  return { ok: true as const, data }
+  return { ok: true as const, data, pending: false }
 }
 
 export function getClass(id: string) {
@@ -217,11 +219,17 @@ export function bookClass(id: string, body: { name?: string; phone?: string }) {
   return { ok: true as const, booking_id: booking.id, balance: balanceOf(client.id), class: classView(row) }
 }
 
+function visitedOf(clientId: string): boolean {
+  const ids = new Set(db.bookings.filter((row) => row.client_id === clientId).map((row) => row.id))
+  return db.attendances.some((row) => ids.has(row.booking_id))
+}
+
 export function getMe() {
   watch()
   const client = devClient()
   return {
     ok: true as const,
+    pending: false,
     data: {
       name: client.name,
       phone: client.phone,
@@ -229,6 +237,7 @@ export function getMe() {
       balance: balanceOf(client.id),
       policy: client.policy,
       is_admin: roleSwitchVisible() ? ui.previewAdmin : false,
+      visited: visitedOf(client.id),
     },
   }
 }
@@ -341,6 +350,7 @@ export function listTypes() {
       price_min: row.price_min,
       price_max: row.price_max,
       active: row.active,
+      color: row.color,
     })),
   }
 }
@@ -361,6 +371,7 @@ export function createType(body: { title?: string; duration_minutes?: number; ca
     price_min: money(body.price_min),
     price_max: money(body.price_max),
     active: true,
+    color: nextTypeColor(db.types.map((item) => item.color)),
   }
   db.types.push(row)
   touch()
@@ -783,15 +794,15 @@ function seed() {
   ]
   for (const [id, name] of trainers) db.trainers.push({ id, name, active: true, telegram_user_id: null })
 
-  const types: Array<[string, string, number, number, number, number]> = [
-    ['ty-kids', 'K-POP KIDS (Dance)', 60, 10, 30, 30],
-    ['ty-kpop', 'K-POP 16+', 60, 9, 17, 35],
-    ['ty-yoga', 'Aero Yoga', 60, 6, 17, 40],
-    ['ty-stretch', 'DYNAMIC STRETCHING', 55, 9, 17, 35],
-    ['ty-heels', 'HIGH HEELS', 60, 9, 0, 0],
-    ['ty-aero', 'Aero Stretching', 60, 6, 17, 40],
+  const types: Array<[string, string, number, number, number, number, string]> = [
+    ['ty-kids', 'K-POP KIDS (Dance)', 60, 10, 30, 30, '#3a7ca5'],
+    ['ty-kpop', 'K-POP 16+', 60, 9, 17, 35, '#b8860b'],
+    ['ty-yoga', 'Aero Yoga', 60, 6, 17, 40, '#5c7a3a'],
+    ['ty-stretch', 'DYNAMIC STRETCHING', 55, 9, 17, 35, '#3d6b8c'],
+    ['ty-heels', 'HIGH HEELS', 60, 9, 0, 0, '#d46a3a'],
+    ['ty-aero', 'Aero Stretching', 60, 6, 17, 40, '#c43d5a'],
   ]
-  for (const [id, title, duration, capacity, min, max] of types) {
+  for (const [id, title, duration, capacity, min, max, color] of types) {
     db.types.push({
       id,
       title,
@@ -800,6 +811,7 @@ function seed() {
       price_min: money(min),
       price_max: money(max),
       active: true,
+      color,
     })
   }
 
