@@ -1,10 +1,11 @@
 .env
 sql/*
 *.log
-docs/
-docs/*
+/docs/
+/docs/*
 *.db
 *.db-wal
 *.db-shm
 *.db.bak
 *.db.bak.tmp
+!/internal/*/docs/*
