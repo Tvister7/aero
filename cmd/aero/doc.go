@@ -6,7 +6,7 @@
 // типы и шаблоны из seed_data.sql.
 //
 // Обязательны BOT_TOKEN и DATA_PATH. ADMIN_IDS — telegram id через запятую.
-// ADDR по умолчанию 127.0.0.1:8080. Снаружи Caddy принимает HTTPS на порту 8181 и проксирует сюда.
+// ADDR по умолчанию 127.0.0.1:8080. В compose процесс слушает 8181, туннель Cloudflare ходит на http://aero:8181.
 // CORS_ORIGIN — origin Mini App, целиком и с https.
 // Токен бота и сырой initData в логи не пишутся.
 //
