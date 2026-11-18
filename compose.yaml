@@ -7,25 +7,19 @@ services:
       BOT_TOKEN: ${BOT_TOKEN:?set BOT_TOKEN}
       ADMIN_IDS: ${ADMIN_IDS:-}
       CORS_ORIGIN: ${CORS_ORIGIN:-}
-      ADDR: 0.0.0.0:8080
+      ADDR: 0.0.0.0:8181
       DATA_PATH: /data/aero.db
     ports:
-      - "8080:8080"
+      - "8181:8181"
     volumes:
       - aero-data:/data
 
-  caddy:
-    image: caddy:2-alpine
+  cloudflared:
+    image: cloudflare/cloudflared:latest
     restart: unless-stopped
+    command: tunnel --no-autoupdate run
     environment:
-      DOMAIN: ${DOMAIN:-tvister7.tplinkdns.com}
-    ports:
-      - "80:80"
-      - "8181:8181"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN}
     depends_on:
       - aero
 
@@ -43,5 +37,3 @@ services:
 
 volumes:
   aero-data:
-  caddy-data:
-  caddy-config:
