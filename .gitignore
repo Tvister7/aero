@@ -1,0 +1,5 @@
+.env
+sql/*
+*.log
+docs/
+docs/*
