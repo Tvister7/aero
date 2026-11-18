@@ -14,6 +14,21 @@ services:
     volumes:
       - aero-data:/data
 
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-tvister7.tplinkdns.com}
+    ports:
+      - "80:80"
+      - "8181:8181"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - aero
+
   seed:
     build: .
     image: aero:local
@@ -28,3 +43,5 @@ services:
 
 volumes:
   aero-data:
+  caddy-data:
+  caddy-config:
