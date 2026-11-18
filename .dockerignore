@@ -1,0 +1,11 @@
+.git
+web
+docs
+sql
+.env
+*.db
+*.db-wal
+*.db-shm
+*.db.bak
+*.db.bak.tmp
+*.log
