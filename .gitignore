@@ -3,3 +3,8 @@ sql/*
 *.log
 docs/
 docs/*
+*.db
+*.db-wal
+*.db-shm
+*.db.bak
+*.db.bak.tmp

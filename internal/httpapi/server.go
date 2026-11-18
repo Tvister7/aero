@@ -1,0 +1,171 @@
+package httpapi
+
+import (
+	"context"
+	"encoding/json"
+	"log/slog"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/Tvister7/aero/internal/domain"
+	_ "github.com/Tvister7/aero/internal/httpapi/docs"
+	"github.com/Tvister7/aero/internal/sqlite"
+	"github.com/Tvister7/aero/internal/telegram"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
+)
+
+type Server struct {
+	DB     *sqlite.DB
+	Bot    telegram.Sender
+	Admins map[int64]struct{}
+	Origin string
+	Token  string
+	Now    func() time.Time
+}
+
+func (s *Server) Handler() http.Handler {
+	mux := http.NewServeMux()
+	mux.Handle("GET /swagger/", httpSwagger.Handler(httpSwagger.PersistAuthorization(true)))
+	mux.HandleFunc("GET /studio", s.auth(s.studio))
+	mux.HandleFunc("GET /schedule", s.auth(s.schedule))
+	mux.HandleFunc("GET /classes/{id}", s.auth(s.class))
+	mux.HandleFunc("POST /classes/{id}/bookings", s.auth(s.book))
+	mux.HandleFunc("GET /me", s.auth(s.me))
+	mux.HandleFunc("PATCH /me", s.auth(s.patchMe))
+	mux.HandleFunc("POST /me/ping", s.auth(s.ping))
+	mux.HandleFunc("GET /me/bookings", s.auth(s.myBookings))
+	mux.HandleFunc("POST /bookings/{id}/cancel", s.auth(s.cancel))
+	mux.HandleFunc("POST /bookings/{id}/reschedule", s.auth(s.reschedule))
+
+	mux.HandleFunc("GET /admin/trainers", s.admin(s.trainers))
+	mux.HandleFunc("POST /admin/trainers", s.admin(s.createTrainer))
+	mux.HandleFunc("PATCH /admin/trainers/{id}", s.admin(s.patchTrainer))
+	mux.HandleFunc("GET /admin/training-types", s.admin(s.types))
+	mux.HandleFunc("POST /admin/training-types", s.admin(s.createType))
+	mux.HandleFunc("PATCH /admin/training-types/{id}", s.admin(s.patchType))
+	mux.HandleFunc("GET /admin/templates", s.admin(s.templates))
+	mux.HandleFunc("POST /admin/templates", s.admin(s.createTemplate))
+	mux.HandleFunc("PATCH /admin/templates/{id}", s.admin(s.patchTemplate))
+	mux.HandleFunc("POST /admin/weeks", s.admin(s.week))
+	mux.HandleFunc("GET /admin/schedule", s.admin(s.adminSchedule))
+	mux.HandleFunc("POST /admin/classes", s.admin(s.createClass))
+	mux.HandleFunc("PATCH /admin/classes/{id}", s.admin(s.patchClass))
+	mux.HandleFunc("GET /admin/classes/{id}/roster", s.admin(s.roster))
+	mux.HandleFunc("POST /admin/bookings/{id}/attendance", s.admin(s.attendance))
+	mux.HandleFunc("GET /admin/clients.csv", s.admin(s.clientsCSV))
+	mux.HandleFunc("GET /admin/clients", s.admin(s.clients))
+	mux.HandleFunc("GET /admin/clients/{id}", s.admin(s.client))
+	mux.HandleFunc("PATCH /admin/clients/{id}", s.admin(s.patchClient))
+	mux.HandleFunc("POST /admin/clients/{id}/credits", s.admin(s.grant))
+	mux.HandleFunc("GET /admin/stats", s.admin(s.stats))
+	mux.HandleFunc("GET /admin/studio", s.admin(s.adminStudio))
+	mux.HandleFunc("PUT /admin/studio", s.admin(s.putStudio))
+	return s.cors(mux)
+}
+
+type endpoint func(http.ResponseWriter, *http.Request, telegram.User)
+
+func (s *Server) auth(next endpoint) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		raw, ok := initData(r)
+		if !ok {
+			writeDomain(w, domain.Fail(domain.Unauthorized))
+			return
+		}
+		user, err := telegram.Verify(s.Token, raw, s.now())
+		if err != nil {
+			writeDomain(w, err)
+			return
+		}
+		next(w, r, user)
+	}
+}
+
+func (s *Server) admin(next endpoint) http.HandlerFunc {
+	return s.auth(func(w http.ResponseWriter, r *http.Request, user telegram.User) {
+		if _, ok := s.Admins[user.ID]; !ok {
+			writeDomain(w, domain.Fail(domain.Forbidden))
+			return
+		}
+		next(w, r, user)
+	})
+}
+
+func (s *Server) cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.Origin != "" && r.Header.Get("Origin") == s.Origin {
+			w.Header().Set("Access-Control-Allow-Origin", s.Origin)
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, OPTIONS")
+			w.Header().Set("Vary", "Origin")
+		}
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) now() time.Time {
+	if s.Now != nil {
+		return s.Now()
+	}
+	return time.Now()
+}
+
+func (s *Server) isAdmin(id int64) bool {
+	_, ok := s.Admins[id]
+	return ok
+}
+
+func (s *Server) notify(ctx context.Context, notices []sqlite.Outbound) {
+	if s.Bot == nil {
+		return
+	}
+	for _, notice := range notices {
+		sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		err := s.Bot.Send(sendCtx, notice.TelegramID, notice.Text)
+		cancel()
+		if err != nil {
+			slog.Error("bot", "telegram_id", notice.TelegramID, "err", err)
+		}
+	}
+}
+
+func initData(r *http.Request) (string, bool) {
+	header := r.Header.Get("Authorization")
+	const prefix = "tma "
+	if !strings.HasPrefix(header, prefix) {
+		return "", false
+	}
+	raw := strings.TrimSpace(header[len(prefix):])
+	return raw, raw != ""
+}
+
+func asUser(user telegram.User) sqlite.User {
+	return sqlite.User{TelegramID: user.ID, Username: user.Username}
+}
+
+func studioFrom(raw map[string]json.RawMessage) (sqlite.Studio, *domain.Error) {
+	var studio sqlite.Studio
+	fields := []struct {
+		key string
+		dst *string
+	}{
+		{"address", &studio.Address},
+		{"phone", &studio.Phone},
+		{"instagram_url", &studio.InstagramURL},
+		{"contact_url", &studio.ContactURL},
+		{"map_url", &studio.MapURL},
+	}
+	for _, field := range fields {
+		value, ok := raw[field.key]
+		if !ok || json.Unmarshal(value, field.dst) != nil {
+			return sqlite.Studio{}, domain.Fail(domain.Validation)
+		}
+	}
+	return studio, nil
+}

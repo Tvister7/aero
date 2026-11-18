@@ -1,0 +1,30 @@
+services:
+  aero:
+    build: .
+    image: aero:local
+    restart: unless-stopped
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN:?set BOT_TOKEN}
+      ADMIN_IDS: ${ADMIN_IDS:-}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      ADDR: 0.0.0.0:8080
+      DATA_PATH: /data/aero.db
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - aero-data:/data
+
+  seed:
+    build: .
+    image: aero:local
+    profiles: ["seed"]
+    environment:
+      DATA_PATH: /data/aero.db
+    volumes:
+      - aero-data:/data
+      - ./sql/seed_data.sql:/seed/seed_data.sql:ro
+    command: ["seed", "/seed/seed_data.sql"]
+    restart: "no"
+
+volumes:
+  aero-data:
