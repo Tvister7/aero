@@ -81,7 +81,7 @@ func trainerName(ctx context.Context, q querier, id string) (string, error) {
 
 func (d *DB) ListTypes(ctx context.Context) ([]TrainingType, error) {
 	rows, err := d.sql.QueryContext(ctx, `
-		select id, title, duration_minutes, capacity, price_min, price_max, active
+		select id, title, duration_minutes, capacity, price_min, price_max, active, color
 		from training_types order by title, id`)
 	if err != nil {
 		return nil, err
@@ -110,10 +110,14 @@ func (d *DB) CreateType(ctx context.Context, now time.Time, in TypeInput) (Train
 		return TrainingType{}, err
 	}
 	err = d.write(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			insert into training_types (id, title, duration_minutes, capacity, price_min, price_max, active, created_at)
-			values (?, ?, ?, ?, ?, ?, ?, ?)`,
-			item.ID, item.Title, item.DurationMinutes, item.Capacity, item.PriceMin, item.PriceMax, bit(item.Active), utc(now))
+		item.Color, err = nextTypeColor(ctx, tx, item.Title)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+			insert into training_types (id, title, duration_minutes, capacity, price_min, price_max, active, color, created_at)
+			values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			item.ID, item.Title, item.DurationMinutes, item.Capacity, item.PriceMin, item.PriceMax, bit(item.Active), item.Color, utc(now))
 		return err
 	})
 	return item, err
@@ -161,14 +165,14 @@ func (d *DB) PatchType(ctx context.Context, id string, in TypeInput) (TrainingTy
 
 func loadType(ctx context.Context, q querier, id string) (TrainingType, error) {
 	return scanType(q.QueryRowContext(ctx, `
-		select id, title, duration_minutes, capacity, price_min, price_max, active
+		select id, title, duration_minutes, capacity, price_min, price_max, active, color
 		from training_types where id = ?`, id))
 }
 
 func scanType(row scanner) (TrainingType, error) {
 	var item TrainingType
 	var active int
-	err := row.Scan(&item.ID, &item.Title, &item.DurationMinutes, &item.Capacity, &item.PriceMin, &item.PriceMax, &active)
+	err := row.Scan(&item.ID, &item.Title, &item.DurationMinutes, &item.Capacity, &item.PriceMin, &item.PriceMax, &active, &item.Color)
 	item.Active = active == 1
 	return item, err
 }

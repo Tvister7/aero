@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createTemplate, generateWeek, listTemplates, listTrainers, listTypes, patchTemplate } from '../api'
+  import { focusField } from '../lib/focus'
   import { weekdayName } from '../lib/time'
 
   let templates = $derived(listTemplates().data)
@@ -17,9 +18,9 @@
     if (!typeId && types[0]) typeId = types[0].id
   })
 
-  function add(event: SubmitEvent) {
+  async function add(event: SubmitEvent) {
     event.preventDefault()
-    const response = createTemplate({
+    const response = await createTemplate({
       trainer_id: trainerId,
       training_type_id: typeId,
       weekday: Number(weekday),
@@ -28,13 +29,16 @@
     notice = response.ok ? 'Шаблон добавлен. Текущие занятия не изменились.' : response.message
   }
 
-  function generate() {
-    const response = generateWeek(weekStart || undefined)
-    notice = `Неделя ${response.week_start}: создано ${response.created}, обновлено ${response.updated}.`
+  async function generate() {
+    const response = await generateWeek(weekStart || undefined)
+    notice = response.ok
+      ? `Неделя ${response.week_start}: создано ${response.created}, обновлено ${response.updated}.`
+      : response.message
   }
 </script>
 
 <h2 class="day">Шаблоны</h2>
+<button class="ghost add" type="button" onclick={() => focusField('tpl-trainer')}>Добавить</button>
 {#if notice}<p class="card">{notice}</p>{/if}
 <div class="card">
   <label for="week">Понедельник недели</label>
@@ -46,12 +50,12 @@
   <article class="card">
     <strong>{template.title}</strong>
     <p class="meta">{weekdayName(template.weekday)}, {template.start_time}</p>
-    <button class="ghost" type="button" onclick={() => patchTemplate(template.id, { active: !template.active })}>
+    <button class="ghost" class:off={!template.active} type="button" onclick={() => { void patchTemplate(template.id, { active: !template.active }) }}>
       {template.active ? 'Выключить' : 'Включить'}
     </button>
   </article>
 {/each}
-<form class="card" onsubmit={add}>
+<form class="card composer" onsubmit={add}>
   <h3>Новый шаблон</h3>
   <label for="tpl-trainer">Тренер</label>
   <select id="tpl-trainer" bind:value={trainerId}>

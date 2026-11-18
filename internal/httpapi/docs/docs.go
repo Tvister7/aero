@@ -1550,7 +1550,7 @@ const docTemplate = `{
                         "TMA": []
                     }
                 ],
-                "description": "is_admin истинен, если telegram id есть в ADMIN_IDS. Новый человек создаётся с policy postpay.",
+                "description": "is_admin истинен, если telegram id есть в ADMIN_IDS. Новый человек создаётся с policy postpay. visited истинен, если была хотя бы одна явка, в том числе позже снятая.",
                 "tags": [
                     "Клиент"
                 ],
@@ -1953,6 +1953,11 @@ const docTemplate = `{
                     "type": "integer",
                     "example": 6
                 },
+                "color": {
+                    "description": "Цвет типа занятия. Хранится на типе, поэтому скрытие другого типа его не меняет.",
+                    "type": "string",
+                    "example": "#5c7a3a"
+                },
                 "ends_at": {
                     "type": "string",
                     "example": "2026-09-03T20:00:00+04:00"
@@ -2240,6 +2245,11 @@ const docTemplate = `{
                 "username": {
                     "type": "string",
                     "example": "anna"
+                },
+                "visited": {
+                    "description": "Была хотя бы одна явка, в том числе позже снятая.",
+                    "type": "boolean",
+                    "example": false
                 }
             }
         },
@@ -2698,6 +2708,11 @@ const docTemplate = `{
                     "description": "Вместимость по умолчанию для новых шаблонов и разовых занятий.",
                     "type": "integer",
                     "example": 6
+                },
+                "color": {
+                    "description": "Цвет индикации. Назначается при создании и не меняется, когда другие типы скрывают.",
+                    "type": "string",
+                    "example": "#5c7a3a"
                 },
                 "duration_minutes": {
                     "description": "Длительность одного слота, от 1 до 600 минут.",

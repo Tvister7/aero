@@ -97,7 +97,7 @@ func ImportSQL(ctx context.Context, db *DB, text string, now time.Time) (SeedCou
 			}
 			counts.Templates++
 		}
-		return nil
+		return ensureTypeColors(ctx, tx)
 	})
 	return counts, err
 }

@@ -14,10 +14,10 @@
     if (!typeId && types[0]) typeId = types[0].id
   })
 
-  function submit(event: SubmitEvent) {
+  async function submit(event: SubmitEvent) {
     event.preventDefault()
     const iso = starts.length === 16 ? `${starts}:00+04:00` : starts
-    const response = createClass({
+    const response = await createClass({
       trainer_id: trainerId,
       training_type_id: typeId,
       starts_at: iso,

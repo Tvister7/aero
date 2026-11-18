@@ -5,8 +5,8 @@
   let rows = $derived(todayRoster())
   let error = $state('')
 
-  function mark(bookingId: string, arrived: boolean) {
-    const response = setAttendance(bookingId, arrived)
+  async function mark(bookingId: string, arrived: boolean) {
+    const response = await setAttendance(bookingId, arrived)
     error = response.ok ? '' : response.message
   }
 </script>

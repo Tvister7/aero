@@ -28,9 +28,9 @@
     return value.endsWith('+04:00') ? value : `${value}+04:00`
   }
 
-  function save(event: SubmitEvent) {
+  async function save(event: SubmitEvent) {
     event.preventDefault()
-    const response = patchClass(classId, {
+    const response = await patchClass(classId, {
       starts_at: localToIso(starts),
       capacity: Number(capacity),
       title,
@@ -39,19 +39,19 @@
     error = response.ok ? 'Слот обновлён. Записанным уйдёт сообщение, когда бот будет подключён.' : response.message
   }
 
-  function cancel() {
-    const response = patchClass(classId, { status: 'cancelled' })
+  async function cancel() {
+    const response = await patchClass(classId, { status: 'cancelled' })
     error = response.ok ? 'Занятие отменено. Баланс записей не изменился.' : response.message
   }
 
-  function mark(bookingId: string, arrived: boolean) {
-    const response = setAttendance(bookingId, arrived)
+  async function mark(bookingId: string, arrived: boolean) {
+    const response = await setAttendance(bookingId, arrived)
     error = response.ok ? '' : response.message
   }
 </script>
 
 {#if !card.ok}
-  <p class="card error">{card.message}</p>
+  {#if card.message}<p class="card error">{card.message}</p>{/if}
 {:else}
   <article class="card">
     <h2>{card.data.title}</h2>

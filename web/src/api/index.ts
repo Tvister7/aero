@@ -1,4 +1,9 @@
-export {
+import * as http from './http.svelte.ts'
+import * as stub from './stub.svelte.ts'
+
+const api = import.meta.env.VITE_API_URL ? http : stub
+
+export const {
   bookClass,
   cancelBooking,
   clientsCsv,
@@ -36,4 +41,4 @@ export {
   setPreviewAdmin,
   stats,
   todayRoster,
-} from './stub.svelte.ts'
+} = api

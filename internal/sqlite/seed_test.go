@@ -26,7 +26,7 @@ func TestImportSeed(t *testing.T) {
 		t.Fatalf("trainers %+v %v", trainers, err)
 	}
 	types, err := db.ListTypes(context.Background())
-	if err != nil || len(types) != 1 || types[0].PriceMin != "17.00" || types[0].PriceMax != "40.00" {
+	if err != nil || len(types) != 1 || types[0].PriceMin != "17.00" || types[0].PriceMax != "40.00" || types[0].Color != "#5c7a3a" {
 		t.Fatalf("types %+v %v", types, err)
 	}
 	templates, err := db.ListTemplates(context.Background())

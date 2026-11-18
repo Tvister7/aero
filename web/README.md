@@ -1,6 +1,6 @@
 # aero.ge
 
-Фронт Mini App на TypeScript и заглушке. Пока `VITE_API_URL` пустой, в шапке есть переключатель «клиент / админ».
+Фронт Mini App на TypeScript. Пока `VITE_API_URL` пустой, работает заглушка и в шапке есть переключатель «клиент / админ». Сборка берёт адрес из `.env.production`.
 
 ```sh
 npm install

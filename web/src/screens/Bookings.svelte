@@ -8,13 +8,13 @@
   let moving = $state('')
   let target = $state('')
 
-  function cancel(id: string) {
-    const response = cancelBooking(id)
+  async function cancel(id: string) {
+    const response = await cancelBooking(id)
     error = response.ok ? '' : response.message
   }
 
-  function move(id: string) {
-    const response = rescheduleBooking(id, target)
+  async function move(id: string) {
+    const response = await rescheduleBooking(id, target)
     error = response.ok ? '' : response.message
     if (response.ok) moving = ''
   }
@@ -26,6 +26,8 @@
   <p class="card muted">Будущих записей нет.</p>
 {/if}
 {#each list.data as item (item.booking_id)}
+  {@const hours = hoursUntil(item.class.starts_at)}
+  {@const locked = hours <= 6}
   <article class="card">
     <strong>{item.class.title}</strong>
     <p class="meta">{formatWhen(item.class.starts_at)} · {item.class.trainer.name}</p>
@@ -33,11 +35,15 @@
       <button
         class="danger"
         type="button"
-        data-testid={hoursUntil(item.class.starts_at) > 6 ? 'cancel-open' : 'cancel-late'}
+        disabled={locked}
+        data-testid={hours > 6 ? 'cancel-open' : 'cancel-late'}
         onclick={() => cancel(item.booking_id)}
       >Отменить</button>
-      <button class="ghost" type="button" onclick={() => (moving = moving === item.booking_id ? '' : item.booking_id)}>Перенести</button>
+      <button class="ghost" type="button" disabled={locked} onclick={() => (moving = moving === item.booking_id ? '' : item.booking_id)}>Перенести</button>
     </div>
+    {#if locked}
+      <p class="muted" data-testid="cutoff-reason">{hours <= 0 ? 'Занятие уже началось' : 'До начала меньше 6 часов'}</p>
+    {/if}
     {#if moving === item.booking_id}
       <label for="target">Новое занятие</label>
       <select id="target" bind:value={target}>

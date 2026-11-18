@@ -102,7 +102,7 @@ func (s *Server) book(w http.ResponseWriter, r *http.Request, user telegram.User
 // Профиль открывшего приложение.
 //
 // @Summary Профиль
-// @Description is_admin истинен, если telegram id есть в ADMIN_IDS. Новый человек создаётся с policy postpay.
+// @Description is_admin истинен, если telegram id есть в ADMIN_IDS. Новый человек создаётся с policy postpay. visited истинен, если была хотя бы одна явка, в том числе позже снятая.
 // @Tags Клиент
 // @Security TMA
 // @Success 200 {object} MeResponse

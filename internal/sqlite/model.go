@@ -30,6 +30,8 @@ type TrainingType struct {
 	// Верхняя подпись стоимости, не меньше price_min.
 	PriceMax string `json:"price_max" example:"40.00"`
 	Active   bool   `json:"active" example:"true"`
+	// Цвет индикации. Назначается при создании и не меняется, когда другие типы скрывают.
+	Color string `json:"color" example:"#5c7a3a"`
 }
 
 // Template еженедельный слот. weekday: 1 понедельник … 7 воскресенье. start_time — местное HH:MM.
@@ -69,6 +71,8 @@ type ClassView struct {
 	FreePlaces int    `json:"free_places" example:"4"`
 	PriceMin   string `json:"price_min" example:"17.00"`
 	PriceMax   string `json:"price_max" example:"40.00"`
+	// Цвет типа занятия. Хранится на типе, поэтому скрытие другого типа его не меняет.
+	Color string `json:"color" example:"#5c7a3a"`
 	// Только админские ответы. У клиента поле отсутствует.
 	Status *string `json:"status,omitempty" example:"scheduled" enums:"scheduled,cancelled"`
 }
@@ -115,8 +119,10 @@ type Me struct {
 	// Сумма проводок. Запись на занятие это число не уменьшает.
 	Balance int `json:"balance" example:"4"`
 	// postpay разрешает запись в долг. restricted запрещает запись при балансе 0 и ниже.
-	Policy  string `json:"policy" example:"postpay" enums:"postpay,restricted"`
-	IsAdmin bool   `json:"is_admin" example:"false"`
+	Policy string `json:"policy" example:"postpay" enums:"postpay,restricted"`
+	// Была хотя бы одна явка, в том числе позже снятая.
+	Visited bool `json:"visited" example:"false"`
+	IsAdmin bool `json:"is_admin" example:"false"`
 }
 
 // ClientSummary строка списка клиентов.

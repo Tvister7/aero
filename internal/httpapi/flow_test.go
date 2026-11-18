@@ -61,7 +61,7 @@ func TestStudioFlow(t *testing.T) {
 	}))
 
 	me := data(callOK(t, httpServer, http.MethodGet, "/me", anna, nil))
-	if me["policy"] != "postpay" || me["balance"] != float64(0) || me["username"] != "anna" || me["is_admin"] != false {
+	if me["policy"] != "postpay" || me["balance"] != float64(0) || me["username"] != "anna" || me["is_admin"] != false || me["visited"] != false {
 		t.Fatalf("me %v", me)
 	}
 	booked := callOK(t, httpServer, http.MethodPost, "/classes/"+far["id"].(string)+"/bookings", anna, map[string]string{"name": "Анна", "phone": "+995"})
@@ -155,7 +155,10 @@ func TestStudioFlow(t *testing.T) {
 		t.Fatalf("week repeat %v", againWeek)
 	}
 
-	callOK(t, httpServer, http.MethodPatch, "/me", anna, map[string]any{"name": "Анна, студия"})
+	profile := data(callOK(t, httpServer, http.MethodPatch, "/me", anna, map[string]any{"name": "Анна, студия"}))
+	if profile["visited"] != true || profile["name"] != "Анна, студия" {
+		t.Fatalf("visited after cleared attendance %v", profile)
+	}
 	saved := data(callOK(t, httpServer, http.MethodPut, "/admin/studio", admin, map[string]any{
 		"address": "ул. Чавчавадзе", "phone": "+995", "instagram_url": "https://instagram.com/aero", "contact_url": "", "map_url": "",
 	}))

@@ -46,6 +46,7 @@ export type TrainingType = {
   price_min: string
   price_max: string
   active: boolean
+  color: string
 }
 
 export type ClassTemplate = {
@@ -84,6 +85,7 @@ export type ClassView = {
   free_places: number
   price_min: string
   price_max: string
+  color: string
   status: ClassStatus
 }
 
@@ -198,6 +200,7 @@ export type Me = {
   balance: number
   policy: BookingPolicy
   is_admin: boolean
+  visited: boolean
 }
 
 export type Stats = {
