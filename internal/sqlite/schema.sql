@@ -3,6 +3,8 @@ create table if not exists trainers (
   name text not null unique,
   active integer not null check (active in (0, 1)),
   telegram_user_id text unique,
+  about text not null default '',
+  phone text not null default '',
   created_at text not null
 );
 
@@ -34,17 +36,23 @@ create table if not exists class_templates (
 create table if not exists classes (
   id text primary key,
   template_id text references class_templates(id),
-  trainer_id text not null references trainers(id),
-  training_type_id text not null references training_types(id),
+  trainer_id text references trainers(id),
+  training_type_id text references training_types(id),
   title text not null,
   starts_at text not null,
   ends_at text not null,
-  capacity integer not null check (capacity > 0),
+  capacity integer not null check (capacity >= 0),
   price_min text not null,
   price_max text not null,
   status text not null check (status in ('scheduled', 'cancelled')),
+  kind text not null default 'group' check (kind in ('group', 'individual', 'hold')),
   created_at text not null,
   check (ends_at > starts_at),
+  check (
+    (kind = 'group' and trainer_id is not null and training_type_id is not null and capacity > 0)
+    or (kind = 'individual' and trainer_id is not null and training_type_id is null and capacity = 1)
+    or (kind = 'hold' and trainer_id is null and training_type_id is null and capacity = 0)
+  ),
   unique (trainer_id, starts_at)
 );
 
@@ -132,3 +140,32 @@ create table if not exists studio (
 insert into studio (id, address, phone, instagram_url, contact_url, map_url)
 values (1, '', '', '', '', '')
 on conflict (id) do nothing;
+
+create table if not exists enrollments (
+  id text primary key,
+  client_id text not null references clients(id),
+  template_id text not null references class_templates(id),
+  active integer not null check (active in (0, 1)),
+  created_at text not null,
+  unique (client_id, template_id)
+);
+
+create table if not exists trainer_absences (
+  id text primary key,
+  trainer_id text not null references trainers(id),
+  starts_on text not null,
+  ends_on text not null,
+  created_at text not null,
+  check (ends_on >= starts_on)
+);
+
+create table if not exists balance_notices (
+  id text primary key,
+  client_id text not null references clients(id),
+  class_id text not null references classes(id),
+  kind text not null check (kind in ('booked_empty', 'skipped_empty')),
+  state text not null check (state in ('pending', 'sent', 'skipped')),
+  notice_at text not null,
+  created_at text not null,
+  unique (client_id, class_id, kind)
+);

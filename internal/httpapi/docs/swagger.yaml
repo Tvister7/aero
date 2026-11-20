@@ -1,6 +1,29 @@
 consumes:
 - application/json
 definitions:
+  Absence:
+    description: Отпуск тренера, даты включительно, Asia/Tbilisi.
+    properties:
+      ends_on:
+        example: "2026-12-07"
+        type: string
+      id:
+        example: 6ba7b817-9dad-11d1-80b4-00c04fd430c8
+        type: string
+      starts_on:
+        example: "2026-12-01"
+        type: string
+    type: object
+  AbsenceInput:
+    description: Новый отпуск. Обе даты обязательны, конец не раньше начала.
+    properties:
+      ends_on:
+        example: "2026-12-07"
+        type: string
+      starts_on:
+        example: "2026-12-01"
+        type: string
+    type: object
   AttendanceInput:
     description: Отметка явки. true ставит или подтверждает явку, false снимает активную.
       Поле обязательно. Повтор true и снятие при отсутствии явки баланс не меняют.
@@ -140,6 +163,15 @@ definitions:
       id:
         example: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
         type: string
+      kind:
+        description: group — обычное занятие, individual — закрытый час одного клиента,
+          hold — резерв зала.
+        enum:
+        - group
+        - individual
+        - hold
+        example: group
+        type: string
       price_max:
         example: "40.00"
         type: string
@@ -157,11 +189,20 @@ definitions:
         - cancelled
         example: scheduled
         type: string
+      template_id:
+        description: 'Шаблон, из которого собрано занятие. Пусто у разового слота:
+          только его можно перенести.'
+        example: 6ba7b813-9dad-11d1-80b4-00c04fd430c8
+        type: string
       title:
         example: Aero Yoga
         type: string
       trainer:
         $ref: '#/definitions/TrainerRef'
+      training_type_id:
+        description: Вид занятия. Перенос записи возможен только на тот же вид.
+        example: 6ba7b812-9dad-11d1-80b4-00c04fd430c8
+        type: string
     type: object
   ClassesResponse:
     description: Ответ со списком занятий по starts_at.
@@ -205,6 +246,27 @@ definitions:
       username:
         example: anna
         type: string
+    type: object
+  ClientName:
+    description: Имя клиента для выбора на индивидуальное. Телефон сюда не входит.
+    properties:
+      id:
+        example: 6ba7b815-9dad-11d1-80b4-00c04fd430c8
+        type: string
+      name:
+        example: Анна
+        type: string
+    type: object
+  ClientNamesResponse:
+    description: Короткие имена для выбора клиента.
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/ClientName'
+        type: array
+      ok:
+        example: true
+        type: boolean
     type: object
   ClientResponse:
     description: Карточка клиента.
@@ -254,6 +316,50 @@ definitions:
         example: true
         type: boolean
     type: object
+  EnrollmentInput:
+    description: Полный набор отмеченных шаблонов. Пустой список снимает все отметки.
+    properties:
+      template_ids:
+        items:
+          type: string
+        type: array
+    type: object
+  EnrollmentOption:
+    description: Активный шаблон, который клиент может отметить.
+    properties:
+      enrolled:
+        example: true
+        type: boolean
+      start_time:
+        example: "19:00"
+        type: string
+      template_id:
+        example: 6ba7b813-9dad-11d1-80b4-00c04fd430c8
+        type: string
+      title:
+        example: Aero Yoga
+        type: string
+      trainer_id:
+        example: 6ba7b811-9dad-11d1-80b4-00c04fd430c8
+        type: string
+      trainer_name:
+        example: Лилия
+        type: string
+      weekday:
+        example: 4
+        type: integer
+    type: object
+  EnrollmentsResponse:
+    description: Активные шаблоны и отметки клиента.
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/EnrollmentOption'
+        type: array
+      ok:
+        example: true
+        type: boolean
+    type: object
   ErrorBody:
     description: 'Ошибка API. ok всегда false. Тексты: UNAUTHORIZED «Откройте приложение
       заново из Telegram», FORBIDDEN «Недостаточно прав», VALIDATION «Проверьте поля»,
@@ -262,8 +368,8 @@ definitions:
       NO_PLACES «Свободных мест нет», ALREADY_BOOKED «Вы уже записаны», CUTOFF_EXCEEDED
       «Отмена и перенос доступны не позднее чем за 6 часов», SAME_CLASS «Это то же
       занятие», NO_CREDITS «Занятия на балансе закончились», ATTENDANCE_TOO_EARLY
-      «Отметить явку можно за 30 минут до начала», INTERNAL «Не удалось выполнить
-      запрос».'
+      «Отметить явку можно за 30 минут до начала», STUDIO_BUSY «Это время уже занято»,
+      INTERNAL «Не удалось выполнить запрос».'
     properties:
       error_code:
         enum:
@@ -280,6 +386,7 @@ definitions:
         - SAME_CLASS
         - NO_CREDITS
         - ATTENDANCE_TOO_EARLY
+        - STUDIO_BUSY
         - INTERNAL
         example: NO_CREDITS
         type: string
@@ -299,6 +406,36 @@ definitions:
         type: integer
       note:
         example: пакет сентябрь
+        type: string
+    type: object
+  HoldInput:
+    description: Резерв зала. duration_minutes по умолчанию 60.
+    properties:
+      duration_minutes:
+        example: 60
+        type: integer
+      starts_at:
+        example: "2026-09-12T19:00:00+04:00"
+        type: string
+      title:
+        example: Съёмка
+        type: string
+    type: object
+  IndividualInput:
+    description: Закрытое занятие с уже выбранным клиентом. duration_minutes по умолчанию
+      60.
+    properties:
+      client_id:
+        example: 6ba7b815-9dad-11d1-80b4-00c04fd430c8
+        type: string
+      duration_minutes:
+        example: 60
+        type: integer
+      starts_at:
+        example: "2026-09-12T19:00:00+04:00"
+        type: string
+      trainer_id:
+        example: 6ba7b811-9dad-11d1-80b4-00c04fd430c8
         type: string
     type: object
   LedgerView:
@@ -337,6 +474,10 @@ definitions:
         example: 4
         type: integer
       is_admin:
+        example: false
+        type: boolean
+      is_trainer:
+        description: Telegram id совпадает с активным тренером.
         example: false
         type: boolean
       name:
@@ -386,6 +527,13 @@ definitions:
         items:
           $ref: '#/definitions/MyBooking'
         type: array
+      ok:
+        example: true
+        type: boolean
+    type: object
+  OKResponse:
+    description: Успешный вызов без данных.
+    properties:
       ok:
         example: true
         type: boolean
@@ -622,6 +770,10 @@ definitions:
   Trainer:
     description: Тренер студии.
     properties:
+      about:
+        description: Короткий текст «о тренере». Пустая строка — не заполнено.
+        example: Йога и растяжка
+        type: string
       active:
         description: false скрывает тренера из новых шаблонов. Уже созданные занятия
           остаются.
@@ -634,6 +786,73 @@ definitions:
         description: Имя на экране расписания. Уникально.
         example: Лилия
         type: string
+      phone:
+        example: "+995555000000"
+        type: string
+      telegram_user_id:
+        description: Telegram id клиента, если роль тренера выдана. Пусто — роли нет.
+        example: "1001"
+        type: string
+    type: object
+  TrainerDetail:
+    description: Карточка тренера и его отпуска.
+    properties:
+      about:
+        description: Короткий текст «о тренере». Пустая строка — не заполнено.
+        example: Йога и растяжка
+        type: string
+      absences:
+        items:
+          $ref: '#/definitions/Absence'
+        type: array
+      active:
+        description: false скрывает тренера из новых шаблонов. Уже созданные занятия
+          остаются.
+        example: true
+        type: boolean
+      id:
+        example: 6ba7b811-9dad-11d1-80b4-00c04fd430c8
+        type: string
+      name:
+        description: Имя на экране расписания. Уникально.
+        example: Лилия
+        type: string
+      phone:
+        example: "+995555000000"
+        type: string
+      telegram_user_id:
+        description: Telegram id клиента, если роль тренера выдана. Пусто — роли нет.
+        example: "1001"
+        type: string
+    type: object
+  TrainerDetailResponse:
+    description: Карточка тренера.
+    properties:
+      data:
+        $ref: '#/definitions/TrainerDetail'
+      ok:
+        example: true
+        type: boolean
+    type: object
+  TrainerFields:
+    description: Правка карточки тренера. Отсутствующее поле не меняется. Пустой telegram_user_id
+      снимает привязку.
+    properties:
+      about:
+        example: Йога и растяжка
+        type: string
+      active:
+        example: false
+        type: boolean
+      name:
+        example: Лилия
+        type: string
+      phone:
+        example: "+995555000000"
+        type: string
+      telegram_user_id:
+        example: "1001"
+        type: string
     type: object
   TrainerInput:
     description: Новый тренер. После создания active равен true.
@@ -642,15 +861,14 @@ definitions:
         example: Лилия
         type: string
     type: object
-  TrainerPatch:
-    description: Правка тренера. Отсутствующее поле не меняется. Чужое занятое имя
-      отклоняется.
+  TrainerProfile:
+    description: Текст и телефон, которые тренер правит сам. Имя здесь не меняется.
     properties:
-      active:
-        example: false
-        type: boolean
-      name:
-        example: Лилия
+      about:
+        example: Йога и растяжка
+        type: string
+      phone:
+        example: "+995555000000"
         type: string
     type: object
   TrainerRef:
@@ -668,6 +886,33 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/Trainer'
+      ok:
+        example: true
+        type: boolean
+    type: object
+  TrainerStats:
+    description: Сводка тренера за включительный диапазон дат Asia/Tbilisi. clients
+      — разные клиенты с активной явкой на его занятиях. attends — проводки attend
+      по этим занятиям.
+    properties:
+      attends:
+        example: 20
+        type: integer
+      clients:
+        example: 12
+        type: integer
+      from:
+        example: "2026-09-01"
+        type: string
+      to:
+        example: "2026-09-30"
+        type: string
+    type: object
+  TrainerStatsResponse:
+    description: Сводка тренера.
+    properties:
+      data:
+        $ref: '#/definitions/TrainerStats'
       ok:
         example: true
         type: boolean
@@ -756,6 +1001,37 @@ definitions:
       data:
         items:
           $ref: '#/definitions/TrainingType'
+        type: array
+      ok:
+        example: true
+        type: boolean
+    type: object
+  Visit:
+    description: Состоявшееся посещение. payment paid — занятие списано, unpaid —
+      явка без покрытия.
+    properties:
+      payment:
+        enum:
+        - paid
+        - unpaid
+        example: paid
+        type: string
+      starts_at:
+        example: "2026-09-03T19:00:00+04:00"
+        type: string
+      title:
+        example: Aero Yoga
+        type: string
+      trainer_name:
+        example: Лилия
+        type: string
+    type: object
+  VisitsResponse:
+    description: История посещений, новые сверху.
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/Visit'
         type: array
       ok:
         example: true
@@ -1136,6 +1412,86 @@ paths:
       summary: Начислить занятия
       tags:
       - Админ
+  /admin/holds:
+    post:
+      description: Клиент видит «Студия занята». Админ и тренеры видят название.
+      parameters:
+      - description: Название и начало
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/HoldInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ClassResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Зарезервировать время
+      tags:
+      - Админ
+  /admin/individuals:
+    post:
+      description: В общее расписание не попадает. Клиент видит его в своих записях.
+      parameters:
+      - description: Тренер, клиент и начало
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/IndividualInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ClassResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Создать индивидуальное
+      tags:
+      - Админ
   /admin/schedule:
     get:
       description: Те же даты, что у клиента, плюс cancelled и поле status.
@@ -1440,6 +1796,74 @@ paths:
       tags:
       - Админ
   /admin/trainers/{id}:
+    delete:
+      description: Будущие занятия отменяются, шаблоны выключаются, Telegram снимается.
+        Строка удаляется, только если занятий в истории нет.
+      parameters:
+      - description: Идентификатор тренера
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/OKResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Удалить тренера
+      tags:
+      - Админ
+    get:
+      parameters:
+      - description: Идентификатор тренера
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TrainerDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Карточка тренера
+      tags:
+      - Админ
     patch:
       parameters:
       - description: Идентификатор тренера
@@ -1452,7 +1876,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/TrainerPatch'
+          $ref: '#/definitions/TrainerFields'
       responses:
         "200":
           description: OK
@@ -1477,6 +1901,122 @@ paths:
       security:
       - TMA: []
       summary: Изменить тренера
+      tags:
+      - Админ
+  /admin/trainers/{id}/absences:
+    post:
+      description: Занятия этого тренера в указанных датах отменяются вместе с записями.
+      parameters:
+      - description: Идентификатор тренера
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Даты включительно
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/AbsenceInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TrainerDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Добавить отпуск
+      tags:
+      - Админ
+  /admin/trainers/{id}/absences/{absenceId}:
+    delete:
+      parameters:
+      - description: Идентификатор тренера
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Идентификатор отпуска
+        in: path
+        name: absenceId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TrainerDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Удалить отпуск
+      tags:
+      - Админ
+  /admin/trainers/{id}/cancel-upcoming:
+    post:
+      description: Отменяет scheduled с началом позже текущего момента. Прошедшие
+        остаются.
+      parameters:
+      - description: Идентификатор тренера
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/OKResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Снять будущие занятия
       tags:
       - Админ
   /admin/training-types:
@@ -1654,7 +2194,8 @@ paths:
       - Клиент
   /bookings/{id}/reschedule:
     post:
-      description: Порог 6 часов считается по старому началу. Баланс не проверяется
+      description: Порог 6 часов считается по старому началу. Занятие из шаблона не
+        переносится. Новое занятие должно быть того же вида. Баланс не проверяется
         и не меняется.
       parameters:
       - description: Идентификатор записи
@@ -1777,9 +2318,10 @@ paths:
       - Клиент
   /me:
     get:
-      description: is_admin истинен, если telegram id есть в ADMIN_IDS. Новый человек
-        создаётся с policy postpay. visited истинен, если была хотя бы одна явка,
-        в том числе позже снятая.
+      description: is_admin истинен, если telegram id есть в ADMIN_IDS. is_trainer
+        истинен, если этот id привязан к активному тренеру. Новый человек создаётся
+        с policy postpay. visited истинен, если была хотя бы одна явка, в том числе
+        позже снятая.
       responses:
         "200":
           description: OK
@@ -1850,6 +2392,60 @@ paths:
       summary: Мои записи
       tags:
       - Клиент
+  /me/enrollments:
+    get:
+      description: Активные шаблоны активных тренеров. enrolled истинен, если клиент
+        отметил слот.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/EnrollmentsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Мои постоянные записи
+      tags:
+      - Клиент
+    put:
+      description: Список заменяет отметки целиком. Отмена одной уже созданной записи
+        отметку не снимает.
+      parameters:
+      - description: Отмеченные шаблоны
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/EnrollmentInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/EnrollmentsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Сохранить постоянные записи
+      tags:
+      - Клиент
   /me/ping:
     post:
       description: Пишет одну отметку открытия для сводки unique_users.
@@ -1869,6 +2465,28 @@ paths:
       security:
       - TMA: []
       summary: Отметить открытие
+      tags:
+      - Клиент
+  /me/visits:
+    get:
+      description: Только активные явки. Снятая отметка, отмена и неявка сюда не попадают.
+        Новые сверху.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/VisitsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Мои посещения
       tags:
       - Клиент
   /schedule:
@@ -1931,6 +2549,450 @@ paths:
       summary: Контакты студии
       tags:
       - Клиент
+  /trainer:
+    get:
+      description: Имя, текст и телефон. Отпуск и удаление здесь недоступны.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TrainerResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Карточка тренера
+      tags:
+      - Тренер
+    patch:
+      parameters:
+      - description: Текст и телефон
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/TrainerProfile'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TrainerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Изменить свою карточку
+      tags:
+      - Тренер
+  /trainer/bookings/{id}/attendance:
+    post:
+      description: actor_role равен trainer. Чужая запись отвечает BOOKING_NOT_FOUND.
+      parameters:
+      - description: Идентификатор записи
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Явка
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/AttendanceInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AttendanceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Отметить явку
+      tags:
+      - Тренер
+  /trainer/classes:
+    post:
+      description: 'trainer_id из тела игнорируется: слот всегда принадлежит этому
+        тренеру.'
+      parameters:
+      - description: Тип и начало
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/ClassInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ClassResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Создать разовое занятие
+      tags:
+      - Тренер
+  /trainer/classes/{id}:
+    patch:
+      description: Только своё индивидуальное. Новое время не должно пересекать занятый
+        зал.
+      parameters:
+      - description: Идентификатор занятия
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Новое начало
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/ClassPatch'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ClassResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Перенести индивидуальное
+      tags:
+      - Тренер
+  /trainer/classes/{id}/cancel:
+    post:
+      parameters:
+      - description: Идентификатор занятия
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ClassResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Отменить своё занятие
+      tags:
+      - Тренер
+  /trainer/classes/{id}/roster:
+    get:
+      parameters:
+      - description: Идентификатор занятия
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/RosterResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Журнал своего занятия
+      tags:
+      - Тренер
+  /trainer/clients:
+    get:
+      description: Пустой запрос возвращает пустой список. В строке только id и имя.
+      parameters:
+      - description: Часть имени
+        in: query
+        name: q
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ClientNamesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Найти клиента
+      tags:
+      - Тренер
+  /trainer/individuals:
+    post:
+      description: Клиент назначается сразу. В общем расписании слота нет. trainer_id
+        из тела игнорируется.
+      parameters:
+      - description: Клиент и начало
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/IndividualInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ClassResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Создать индивидуальное
+      tags:
+      - Тренер
+  /trainer/schedule:
+    get:
+      parameters:
+      - description: YYYY-MM-DD
+        example: "2026-09-01"
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: YYYY-MM-DD
+        example: "2026-09-07"
+        in: query
+        name: to
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ClassesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Свои занятия
+      tags:
+      - Тренер
+  /trainer/stats:
+    get:
+      parameters:
+      - description: YYYY-MM-DD
+        example: "2026-09-01"
+        in: query
+        name: from
+        required: true
+        type: string
+      - description: YYYY-MM-DD
+        example: "2026-09-30"
+        in: query
+        name: to
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TrainerStatsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Сводка за период
+      tags:
+      - Тренер
+  /trainer/types:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TypesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Виды занятий
+      tags:
+      - Тренер
 produces:
 - application/json
 securityDefinitions:

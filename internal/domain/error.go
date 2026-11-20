@@ -14,6 +14,7 @@ const (
 	SameClass          = "SAME_CLASS"
 	NoCredits          = "NO_CREDITS"
 	AttendanceTooEarly = "ATTENDANCE_TOO_EARLY"
+	StudioBusy         = "STUDIO_BUSY"
 )
 
 type Error struct {

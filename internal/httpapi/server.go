@@ -35,12 +35,33 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PATCH /me", s.auth(s.patchMe))
 	mux.HandleFunc("POST /me/ping", s.auth(s.ping))
 	mux.HandleFunc("GET /me/bookings", s.auth(s.myBookings))
+	mux.HandleFunc("GET /me/visits", s.auth(s.visits))
+	mux.HandleFunc("GET /me/enrollments", s.auth(s.enrollments))
+	mux.HandleFunc("PUT /me/enrollments", s.auth(s.putEnrollments))
 	mux.HandleFunc("POST /bookings/{id}/cancel", s.auth(s.cancel))
 	mux.HandleFunc("POST /bookings/{id}/reschedule", s.auth(s.reschedule))
 
+	mux.HandleFunc("GET /trainer", s.trainer(s.trainerHome))
+	mux.HandleFunc("PATCH /trainer", s.trainer(s.patchTrainerSelf))
+	mux.HandleFunc("GET /trainer/schedule", s.trainer(s.trainerSchedule))
+	mux.HandleFunc("GET /trainer/types", s.trainer(s.trainerTypes))
+	mux.HandleFunc("POST /trainer/classes", s.trainer(s.trainerCreateClass))
+	mux.HandleFunc("POST /trainer/individuals", s.trainer(s.trainerCreateIndividual))
+	mux.HandleFunc("PATCH /trainer/classes/{id}", s.trainer(s.trainerMoveClass))
+	mux.HandleFunc("GET /trainer/clients", s.trainer(s.trainerClients))
+	mux.HandleFunc("POST /trainer/classes/{id}/cancel", s.trainer(s.trainerCancelClass))
+	mux.HandleFunc("GET /trainer/classes/{id}/roster", s.trainer(s.trainerRoster))
+	mux.HandleFunc("POST /trainer/bookings/{id}/attendance", s.trainer(s.trainerAttendance))
+	mux.HandleFunc("GET /trainer/stats", s.trainer(s.trainerStats))
+
 	mux.HandleFunc("GET /admin/trainers", s.admin(s.trainers))
 	mux.HandleFunc("POST /admin/trainers", s.admin(s.createTrainer))
+	mux.HandleFunc("GET /admin/trainers/{id}", s.admin(s.trainerCard))
 	mux.HandleFunc("PATCH /admin/trainers/{id}", s.admin(s.patchTrainer))
+	mux.HandleFunc("DELETE /admin/trainers/{id}", s.admin(s.deleteTrainer))
+	mux.HandleFunc("POST /admin/trainers/{id}/absences", s.admin(s.addAbsence))
+	mux.HandleFunc("DELETE /admin/trainers/{id}/absences/{absenceId}", s.admin(s.deleteAbsence))
+	mux.HandleFunc("POST /admin/trainers/{id}/cancel-upcoming", s.admin(s.cancelUpcoming))
 	mux.HandleFunc("GET /admin/training-types", s.admin(s.types))
 	mux.HandleFunc("POST /admin/training-types", s.admin(s.createType))
 	mux.HandleFunc("PATCH /admin/training-types/{id}", s.admin(s.patchType))
@@ -50,6 +71,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /admin/weeks", s.admin(s.week))
 	mux.HandleFunc("GET /admin/schedule", s.admin(s.adminSchedule))
 	mux.HandleFunc("POST /admin/classes", s.admin(s.createClass))
+	mux.HandleFunc("POST /admin/holds", s.admin(s.createHold))
+	mux.HandleFunc("POST /admin/individuals", s.admin(s.createIndividual))
 	mux.HandleFunc("PATCH /admin/classes/{id}", s.admin(s.patchClass))
 	mux.HandleFunc("GET /admin/classes/{id}/roster", s.admin(s.roster))
 	mux.HandleFunc("POST /admin/bookings/{id}/attendance", s.admin(s.attendance))
@@ -82,6 +105,22 @@ func (s *Server) auth(next endpoint) http.HandlerFunc {
 	}
 }
 
+type trainerEndpoint func(http.ResponseWriter, *http.Request, telegram.User, string)
+
+func (s *Server) trainer(next trainerEndpoint) http.HandlerFunc {
+	return s.auth(func(w http.ResponseWriter, r *http.Request, user telegram.User) {
+		id, err := s.DB.ActiveTrainerID(r.Context(), user.ID)
+		if finish(w, err) {
+			return
+		}
+		if id == "" {
+			writeDomain(w, domain.Fail(domain.Forbidden))
+			return
+		}
+		next(w, r, user, id)
+	})
+}
+
 func (s *Server) admin(next endpoint) http.HandlerFunc {
 	return s.auth(func(w http.ResponseWriter, r *http.Request, user telegram.User) {
 		if _, ok := s.Admins[user.ID]; !ok {
@@ -97,7 +136,7 @@ func (s *Server) cors(next http.Handler) http.Handler {
 		if s.Origin != "" && r.Header.Get("Origin") == s.Origin {
 			w.Header().Set("Access-Control-Allow-Origin", s.Origin)
 			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
 			w.Header().Set("Vary", "Origin")
 		}
 		if r.Method == http.MethodOptions {

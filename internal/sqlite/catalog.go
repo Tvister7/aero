@@ -11,19 +11,17 @@ import (
 )
 
 func (d *DB) ListTrainers(ctx context.Context) ([]Trainer, error) {
-	rows, err := d.sql.QueryContext(ctx, `select id, name, active from trainers order by name, id`)
+	rows, err := d.sql.QueryContext(ctx, `select id, name, active, about, phone, telegram_user_id from trainers order by name, id`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := []Trainer{}
 	for rows.Next() {
-		var item Trainer
-		var active int
-		if err := rows.Scan(&item.ID, &item.Name, &active); err != nil {
+		item, err := scanTrainer(rows)
+		if err != nil {
 			return nil, err
 		}
-		item.Active = active == 1
 		out = append(out, item)
 	}
 	return out, rows.Err()
@@ -36,41 +34,96 @@ func (d *DB) CreateTrainer(ctx context.Context, now time.Time, name string) (Tra
 	}
 	item := Trainer{ID: d.ids(), Name: name, Active: true}
 	err := d.write(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `insert into trainers (id, name, active, created_at) values (?, ?, 1, ?)`, item.ID, item.Name, utc(now))
+		_, err := tx.ExecContext(ctx, `insert into trainers (id, name, active, about, phone, created_at) values (?, ?, 1, '', '', ?)`, item.ID, item.Name, utc(now))
 		return err
 	})
 	return item, err
 }
 
-func (d *DB) PatchTrainer(ctx context.Context, id string, name *string, active *bool) (Trainer, error) {
+func (d *DB) PatchTrainer(ctx context.Context, id string, patch TrainerFields) (Trainer, error) {
 	var item Trainer
 	err := d.write(ctx, func(tx *sql.Tx) error {
-		current, err := d.trainer(ctx, tx, id)
+		current, err := applyTrainerPatch(ctx, tx, id, patch)
 		if err != nil {
-			return missing(err, domain.Validation)
+			return err
 		}
-		if name != nil {
-			current.Name = strings.TrimSpace(*name)
-			if current.Name == "" {
-				return domain.Fail(domain.Validation)
-			}
+		if err := saveTrainer(ctx, tx, current); err != nil {
+			return err
 		}
-		if active != nil {
-			current.Active = *active
-		}
-		_, err = tx.ExecContext(ctx, `update trainers set name = ?, active = ? where id = ?`, current.Name, bit(current.Active), id)
 		item = current
-		return err
+		return nil
 	})
 	return item, err
 }
 
-func (d *DB) trainer(ctx context.Context, q querier, id string) (Trainer, error) {
+func applyTrainerPatch(ctx context.Context, q querier, id string, patch TrainerFields) (Trainer, error) {
+	current, err := trainerByID(ctx, q, id)
+	if err != nil {
+		return Trainer{}, missing(err, domain.Validation)
+	}
+	if patch.Name != nil {
+		current.Name = strings.TrimSpace(*patch.Name)
+		if current.Name == "" {
+			return Trainer{}, domain.Fail(domain.Validation)
+		}
+	}
+	if patch.Active != nil {
+		current.Active = *patch.Active
+	}
+	if patch.About != nil {
+		current.About = strings.TrimSpace(*patch.About)
+		if len([]rune(current.About)) > 500 {
+			return Trainer{}, domain.Fail(domain.Validation)
+		}
+	}
+	if patch.Phone != nil {
+		current.Phone = strings.TrimSpace(*patch.Phone)
+	}
+	if patch.TelegramUserID != nil {
+		current.TelegramUserID = strings.TrimSpace(*patch.TelegramUserID)
+		if current.TelegramUserID != "" {
+			if _, err := strconv.ParseInt(current.TelegramUserID, 10, 64); err != nil {
+				return Trainer{}, domain.Fail(domain.Validation)
+			}
+			var known int
+			if err := q.QueryRowContext(ctx, `
+				select count(*) from clients
+				where messenger_platform = 'telegram' and messenger_user_id = ?`, current.TelegramUserID).Scan(&known); err != nil {
+				return Trainer{}, err
+			}
+			if known == 0 {
+				return Trainer{}, domain.Fail(domain.Validation)
+			}
+		}
+	}
+	return current, nil
+}
+
+func saveTrainer(ctx context.Context, q querier, item Trainer) error {
+	_, err := q.ExecContext(ctx, `
+		update trainers set name = ?, active = ?, about = ?, phone = ?, telegram_user_id = ? where id = ?`,
+		item.Name, bit(item.Active), item.About, item.Phone, nullable(item.TelegramUserID), item.ID)
+	return err
+}
+
+func trainerByID(ctx context.Context, q querier, id string) (Trainer, error) {
+	return scanTrainer(q.QueryRowContext(ctx, `
+		select id, name, active, about, phone, telegram_user_id from trainers where id = ?`, id))
+}
+
+func scanTrainer(row scanner) (Trainer, error) {
 	var item Trainer
 	var active int
-	err := q.QueryRowContext(ctx, `select id, name, active from trainers where id = ?`, id).Scan(&item.ID, &item.Name, &active)
+	var telegram sql.NullString
+	err := row.Scan(&item.ID, &item.Name, &active, &item.About, &item.Phone, &telegram)
+	if err != nil {
+		return Trainer{}, err
+	}
 	item.Active = active == 1
-	return item, err
+	if telegram.Valid {
+		item.TelegramUserID = telegram.String
+	}
+	return item, nil
 }
 
 func trainerName(ctx context.Context, q querier, id string) (string, error) {

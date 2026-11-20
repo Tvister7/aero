@@ -16,7 +16,7 @@ func (d *DB) Schedule(ctx context.Context, from, to string, admin bool) ([]Class
 	}
 	query := classSelect + ` where c.starts_at >= ? and c.starts_at < ?`
 	if !admin {
-		query += ` and c.status = 'scheduled'`
+		query += ` and c.status = 'scheduled' and c.kind in ('group', 'hold')`
 	}
 	query += ` order by c.starts_at, c.id`
 	rows, err := d.sql.QueryContext(ctx, query, start, end)
@@ -39,6 +39,9 @@ func (d *DB) Class(ctx context.Context, id string, admin bool) (ClassView, error
 	view, err := loadView(ctx, d.sql, id, admin)
 	if err != nil {
 		return ClassView{}, missing(err, domain.ClassNotFound)
+	}
+	if !admin && view.Kind == domain.KindIndividual {
+		return ClassView{}, domain.Fail(domain.ClassNotFound)
 	}
 	return view, nil
 }
@@ -140,6 +143,43 @@ func (d *DB) MyBookings(ctx context.Context, now time.Time, user User) ([]MyBook
 	return out, nil
 }
 
+func (d *DB) Visits(ctx context.Context, user User) ([]Visit, error) {
+	client, err := findClient(ctx, d.sql, user.TelegramID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return []Visit{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	rows, err := d.sql.QueryContext(ctx, `
+		select c.title, t.name, c.starts_at, a.payment
+		from attendances a
+		join bookings b on b.id = a.booking_id
+		join classes c on c.id = b.class_id
+		join trainers t on t.id = c.trainer_id
+		where a.active = 1 and b.client_id = ?
+		order by c.starts_at desc, a.id desc`, client.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Visit{}
+	for rows.Next() {
+		var item Visit
+		var start string
+		if err := rows.Scan(&item.Title, &item.TrainerName, &start, &item.Payment); err != nil {
+			return nil, err
+		}
+		when, err := parseTime(start)
+		if err != nil {
+			return nil, err
+		}
+		item.StartsAt = domain.FormatISO(when)
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) CancelBooking(ctx context.Context, now time.Time, user User, bookingID string) (string, error) {
 	err := d.write(ctx, func(tx *sql.Tx) error {
 		client, err := findClient(ctx, tx, user.TelegramID)
@@ -163,6 +203,12 @@ func (d *DB) CancelBooking(ctx context.Context, now time.Time, user User, bookin
 		}
 		if err := updateBooking(ctx, tx, now, next); err != nil {
 			return err
+		}
+		if class.Kind == domain.KindIndividual {
+			class.Status = domain.Cancelled
+			if err := updateClass(ctx, tx, class); err != nil {
+				return err
+			}
 		}
 		return insertEvent(ctx, tx, now, event)
 	})
@@ -248,6 +294,10 @@ func (d *DB) CreateClass(ctx context.Context, now time.Time, in ClassInput) (Cla
 			ID: d.ids(), TrainerID: in.TrainerID, TypeID: kind.ID, Title: kind.Title,
 			StartsAt: start, EndsAt: start.Add(time.Duration(kind.DurationMinutes) * time.Minute),
 			Capacity: capacity, PriceMin: kind.PriceMin, PriceMax: kind.PriceMax, Status: domain.Scheduled,
+			Kind: domain.KindGroup,
+		}
+		if err := d.studioBusy(ctx, tx, class.StartsAt, class.EndsAt, ""); err != nil {
+			return err
 		}
 		if err := insertClass(ctx, tx, now, class); err != nil {
 			return err
@@ -268,6 +318,12 @@ func (d *DB) PatchClass(ctx context.Context, now time.Time, id string, patch Cla
 		bookings, err := loadBooked(ctx, tx, id)
 		if err != nil {
 			return err
+		}
+		if class.Kind == domain.KindHold && (patch.Capacity != nil || patch.TrainerID != nil) {
+			return domain.Fail(domain.Validation)
+		}
+		if class.Kind == domain.KindIndividual && patch.Capacity != nil && *patch.Capacity != 1 {
+			return domain.Fail(domain.Validation)
 		}
 		if patch.Status != nil {
 			if *patch.Status != domain.Cancelled {
@@ -328,6 +384,9 @@ func (d *DB) PatchClass(ctx context.Context, now time.Time, id string, patch Cla
 			return domain.Fail(domain.Validation)
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		if err := d.studioBusy(ctx, tx, result.Class.StartsAt, result.Class.EndsAt, result.Class.ID); err != nil {
 			return err
 		}
 		if err := updateClass(ctx, tx, result.Class); err != nil {
@@ -392,7 +451,7 @@ func (d *DB) Roster(ctx context.Context, id string) (Roster, error) {
 	return roster, rows.Err()
 }
 
-func (d *DB) Attend(ctx context.Context, now time.Time, bookingID string, arrived bool, actor string) (AttendOutcome, error) {
+func (d *DB) Attend(ctx context.Context, now time.Time, bookingID string, arrived bool, role, actor string) (AttendOutcome, error) {
 	var out AttendOutcome
 	err := d.write(ctx, func(tx *sql.Tx) error {
 		booking, err := loadBooking(ctx, tx, bookingID)
@@ -413,7 +472,7 @@ func (d *DB) Attend(ctx context.Context, now time.Time, bookingID string, arrive
 		}
 		result, derr := domain.Attend(domain.AttendRequest{
 			Now: now, Class: class, Booking: booking, Balance: balance, Active: active, Arrived: arrived,
-			ActorTelegramID: actor, AttendanceID: d.ids(), LedgerID: d.ids(),
+			ActorTelegramID: actor, ActorRole: role, AttendanceID: d.ids(), LedgerID: d.ids(),
 		})
 		if derr != nil {
 			return derr

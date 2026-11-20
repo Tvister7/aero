@@ -11,11 +11,12 @@ import "github.com/Tvister7/aero/internal/sqlite"
 // CUTOFF_EXCEEDED «Отмена и перенос доступны не позднее чем за 6 часов»,
 // SAME_CLASS «Это то же занятие», NO_CREDITS «Занятия на балансе закончились»,
 // ATTENDANCE_TOO_EARLY «Отметить явку можно за 30 минут до начала»,
+// STUDIO_BUSY «Это время уже занято»,
 // INTERNAL «Не удалось выполнить запрос».
-// @Description Ошибка API. ok всегда false. Тексты: UNAUTHORIZED «Откройте приложение заново из Telegram», FORBIDDEN «Недостаточно прав», VALIDATION «Проверьте поля», CLASS_NOT_FOUND «Занятие не найдено», NEW_CLASS_NOT_FOUND «Новое занятие недоступно», BOOKING_NOT_FOUND «Запись не найдена», CLASS_STARTED «Занятие уже началось», NO_PLACES «Свободных мест нет», ALREADY_BOOKED «Вы уже записаны», CUTOFF_EXCEEDED «Отмена и перенос доступны не позднее чем за 6 часов», SAME_CLASS «Это то же занятие», NO_CREDITS «Занятия на балансе закончились», ATTENDANCE_TOO_EARLY «Отметить явку можно за 30 минут до начала», INTERNAL «Не удалось выполнить запрос».
+// @Description Ошибка API. ok всегда false. Тексты: UNAUTHORIZED «Откройте приложение заново из Telegram», FORBIDDEN «Недостаточно прав», VALIDATION «Проверьте поля», CLASS_NOT_FOUND «Занятие не найдено», NEW_CLASS_NOT_FOUND «Новое занятие недоступно», BOOKING_NOT_FOUND «Запись не найдена», CLASS_STARTED «Занятие уже началось», NO_PLACES «Свободных мест нет», ALREADY_BOOKED «Вы уже записаны», CUTOFF_EXCEEDED «Отмена и перенос доступны не позднее чем за 6 часов», SAME_CLASS «Это то же занятие», NO_CREDITS «Занятия на балансе закончились», ATTENDANCE_TOO_EARLY «Отметить явку можно за 30 минут до начала», STUDIO_BUSY «Это время уже занято», INTERNAL «Не удалось выполнить запрос».
 type ErrorBody struct {
 	OK        bool   `json:"ok" example:"false"`
-	ErrorCode string `json:"error_code" example:"NO_CREDITS" enums:"UNAUTHORIZED,FORBIDDEN,VALIDATION,CLASS_NOT_FOUND,NEW_CLASS_NOT_FOUND,BOOKING_NOT_FOUND,CLASS_STARTED,NO_PLACES,ALREADY_BOOKED,CUTOFF_EXCEEDED,SAME_CLASS,NO_CREDITS,ATTENDANCE_TOO_EARLY,INTERNAL"`
+	ErrorCode string `json:"error_code" example:"NO_CREDITS" enums:"UNAUTHORIZED,FORBIDDEN,VALIDATION,CLASS_NOT_FOUND,NEW_CLASS_NOT_FOUND,BOOKING_NOT_FOUND,CLASS_STARTED,NO_PLACES,ALREADY_BOOKED,CUTOFF_EXCEEDED,SAME_CLASS,NO_CREDITS,ATTENDANCE_TOO_EARLY,STUDIO_BUSY,INTERNAL"`
 	Message   string `json:"message" example:"Занятия на балансе закончились"`
 }
 
@@ -33,12 +34,9 @@ type TrainerInput struct {
 	Name string `json:"name" example:"Лилия"`
 }
 
-// TrainerPatch правка тренера. Отсутствующее поле не меняется. Чужое занятое имя отклоняется.
-// @Description Правка тренера. Отсутствующее поле не меняется. Чужое занятое имя отклоняется.
-type TrainerPatch struct {
-	Name   *string `json:"name" example:"Лилия"`
-	Active *bool   `json:"active" example:"false"`
-}
+// TrainerPatch оставлен как прежнее имя правки. Поля совпадают с sqlite.TrainerFields.
+// @Description Правка тренера. Отсутствующее поле не меняется. Пустой telegram_user_id снимает привязку.
+type TrainerPatch = sqlite.TrainerFields
 
 // RescheduleInput занятие, на которое переносится запись.
 // @Description Занятие, на которое переносится запись.
@@ -94,6 +92,13 @@ type ClassesResponse struct {
 	Data []sqlite.ClassView `json:"data"`
 }
 
+// ClientNamesResponse короткие имена для выбора клиента.
+// @Description Короткие имена для выбора клиента.
+type ClientNamesResponse struct {
+	OK   bool                `json:"ok" example:"true"`
+	Data []sqlite.ClientName `json:"data"`
+}
+
 // MeResponse ответ с профилем.
 // @Description Ответ с профилем.
 type MeResponse struct {
@@ -121,6 +126,13 @@ type OpenedResponse struct {
 type MyBookingsResponse struct {
 	OK   bool               `json:"ok" example:"true"`
 	Data []sqlite.MyBooking `json:"data"`
+}
+
+// VisitsResponse история посещений, новые сверху.
+// @Description История посещений, новые сверху.
+type VisitsResponse struct {
+	OK   bool           `json:"ok" example:"true"`
+	Data []sqlite.Visit `json:"data"`
 }
 
 // CancelledResponse запись отменена.
@@ -225,4 +237,31 @@ type ClientResponse struct {
 type StatsResponse struct {
 	OK   bool         `json:"ok" example:"true"`
 	Data sqlite.Stats `json:"data"`
+}
+
+// EnrollmentsResponse активные шаблоны и отметки клиента.
+// @Description Активные шаблоны и отметки клиента.
+type EnrollmentsResponse struct {
+	OK   bool                      `json:"ok" example:"true"`
+	Data []sqlite.EnrollmentOption `json:"data"`
+}
+
+// TrainerDetailResponse карточка тренера.
+// @Description Карточка тренера.
+type TrainerDetailResponse struct {
+	OK   bool                 `json:"ok" example:"true"`
+	Data sqlite.TrainerDetail `json:"data"`
+}
+
+// TrainerStatsResponse сводка тренера.
+// @Description Сводка тренера.
+type TrainerStatsResponse struct {
+	OK   bool                `json:"ok" example:"true"`
+	Data sqlite.TrainerStats `json:"data"`
+}
+
+// OKResponse успешный вызов без данных.
+// @Description Успешный вызов без данных.
+type OKResponse struct {
+	OK bool `json:"ok" example:"true"`
 }

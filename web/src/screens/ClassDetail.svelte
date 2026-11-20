@@ -38,8 +38,9 @@
   <article class="card">
     <h2>{card.data.title}</h2>
     <p class="meta">{formatWhen(card.data.starts_at)} – {formatWhen(card.data.ends_at)}</p>
-    <p class="meta">{card.data.trainer.name}</p>
-    <p>свободно {card.data.free_places} из {card.data.capacity}</p>
+    {#if card.data.kind === 'hold'}<p class="muted">Запись на это время не открыта.</p>{/if}
+    {#if card.data.trainer.name}<p class="meta">{card.data.trainer.name}</p>{/if}
+    {#if card.data.kind !== 'hold'}<p>свободно {card.data.free_places} из {card.data.capacity}</p>{/if}
     {#if priceLabel(card.data.price_min, card.data.price_max)}
       <p class="price">стоимость {priceLabel(card.data.price_min, card.data.price_max)}</p>
     {/if}
@@ -48,6 +49,7 @@
     {/if}
   </article>
 
+  {#if card.data.kind === 'group'}
   <form class="card" onsubmit={submit}>
     <label for="name">Имя</label>
     <input id="name" bind:value={name} autocomplete="name" />
@@ -57,4 +59,5 @@
     {#if error}<p class="error" data-testid="form-error">{error}</p>{/if}
     {#if done}<p data-testid="book-done">{done}</p>{/if}
   </form>
+  {/if}
 {/if}

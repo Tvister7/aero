@@ -28,7 +28,15 @@ const (
 	Paid   = "paid"
 	Unpaid = "unpaid"
 
-	ActorAdmin = "admin"
+	ActorAdmin   = "admin"
+	ActorTrainer = "trainer"
+
+	KindGroup      = "group"
+	KindIndividual = "individual"
+	KindHold       = "hold"
+
+	NoticeBookedEmpty  = "booked_empty"
+	NoticeSkippedEmpty = "skipped_empty"
 )
 
 type Class struct {
@@ -43,6 +51,7 @@ type Class struct {
 	PriceMin   string
 	PriceMax   string
 	Status     string
+	Kind       string
 }
 
 type Client struct {

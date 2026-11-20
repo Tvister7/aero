@@ -181,6 +181,45 @@ func TestRescheduleMovesReminder(t *testing.T) {
 	}
 }
 
+func TestRescheduleRejectsTemplateAndOtherType(t *testing.T) {
+	start := at(2026, 11, 19, 10, 0)
+	current := yogaAt(start)
+	current.TemplateID = "tpl"
+	next := yogaAt(start.Add(48 * time.Hour))
+	next.ID = "class-2"
+	booking := Booking{ID: "b", ClassID: current.ID, Status: Booked}
+	_, _, err := Reschedule(RescheduleRequest{Now: at(2026, 11, 18, 10, 0), Booking: booking, Current: current, Next: next})
+	if code(err) != Validation {
+		t.Fatalf("template: %v", err)
+	}
+	current.TemplateID = ""
+	next.TypeID = "other"
+	_, _, err = Reschedule(RescheduleRequest{Now: at(2026, 11, 18, 10, 0), Booking: booking, Current: current, Next: next})
+	if code(err) != NewClassNotFound {
+		t.Fatalf("type: %v", err)
+	}
+}
+
+func TestAllowanceAndEnrollment(t *testing.T) {
+	if Allowance(Restricted, 2, 1) != 1 || Allowance(Postpay, 0, 0) != 1 || Allowance(Postpay, 0, 1) != 0 || Allowance(Postpay, -1, 0) != 0 || Allowance(Restricted, 0, 0) != 0 {
+		t.Fatal(Allowance(Restricted, 2, 1), Allowance(Postpay, 0, 0), Allowance(Postpay, 0, 1))
+	}
+	open := yogaAt(at(2026, 11, 20, 10, 0))
+	full := yogaAt(at(2026, 11, 21, 10, 0))
+	full.Capacity = 1
+	decisions := DecideEnrollments(Postpay, 0, 1, []SlotChoice{
+		{Class: open, BookedCount: 0},
+		{Class: full, BookedCount: 1},
+	})
+	if !decisions[0].Book || decisions[0].Notice != NoticeBookedEmpty || decisions[1].Book || decisions[1].Notice != "" {
+		t.Fatalf("postpay %+v", decisions)
+	}
+	skipped := DecideEnrollments(Restricted, 0, 0, []SlotChoice{{Class: open}})
+	if skipped[0].Book || skipped[0].Notice != NoticeSkippedEmpty {
+		t.Fatalf("restricted %+v", skipped)
+	}
+}
+
 func TestAttendanceIdempotentAndReversal(t *testing.T) {
 	start := at(2026, 11, 19, 10, 0)
 	class := yogaAt(start)
@@ -241,7 +280,7 @@ func TestGenerateWeekIdempotentAndSkips(t *testing.T) {
 	}
 	var n int
 	ids := func() string { n++; return "new" }
-	first := GenerateWeek(now, monday, templates, nil, ids)
+	first := GenerateWeek(now, monday, templates, nil, nil, ids, true)
 	if first.Created != 1 || first.Updated != 0 || len(first.Upserts) != 1 {
 		t.Fatalf("first %+v", first)
 	}
@@ -252,13 +291,17 @@ func TestGenerateWeekIdempotentAndSkips(t *testing.T) {
 	}
 	existing := []ClassSnapshot{{Class: got, Booked: 8}}
 	existing[0].Class.Capacity = 6
-	second := GenerateWeek(now, monday, templates, existing, ids)
+	second := GenerateWeek(now, monday, templates, existing, nil, ids, true)
 	if second.Created != 0 || second.Updated != 1 || second.Upserts[0].Capacity != 8 || second.Upserts[0].ID != got.ID {
 		t.Fatalf("second %+v", second)
 	}
 	cancelled := got
 	cancelled.Status = Cancelled
-	third := GenerateWeek(now, monday, templates, []ClassSnapshot{{Class: cancelled, Booked: 0}}, ids)
+	third := GenerateWeek(now, monday, templates, []ClassSnapshot{{Class: cancelled, Booked: 0}}, nil, ids, true)
+	away := GenerateWeek(now, monday, templates, nil, []Absence{{TrainerID: "tanya", StartsOn: "2026-11-19", EndsOn: "2026-11-19"}}, ids, true)
+	if away.Created != 0 || len(away.Upserts) != 0 {
+		t.Fatalf("leave created %+v", away)
+	}
 	if third.Created != 0 || third.Updated != 0 || len(third.Upserts) != 0 {
 		t.Fatalf("cancelled revived: %+v", third)
 	}
@@ -378,6 +421,27 @@ func TestMoneyAndPriceOrder(t *testing.T) {
 	_, _, err = NormalizePrice("40", "17")
 	if code(err) != Validation {
 		t.Fatalf("order %v", err)
+	}
+}
+
+func TestGenerateWeekSkipsOccupiedHour(t *testing.T) {
+	monday := at(2026, 11, 16, 0, 0)
+	now := at(2026, 11, 18, 12, 0)
+	templates := []TemplateSlot{{
+		ID: "tpl-thu", TrainerID: "tanya", TypeID: "stretch", Title: "Aero Stretching",
+		Weekday: 4, StartTime: "10:00", Capacity: 6, DurationMinutes: 60, Active: true, TrainerActive: true,
+	}}
+	hold := Class{
+		ID: "hold", Title: "Съёмка", Status: Scheduled, Kind: KindHold,
+		StartsAt: at(2026, 11, 19, 10, 30), EndsAt: at(2026, 11, 19, 11, 0),
+	}
+	got := GenerateWeek(now, monday, templates, []ClassSnapshot{{Class: hold}}, nil, func() string { return "new" }, true)
+	if got.Created != 0 || len(got.Upserts) != 0 {
+		t.Fatalf("occupied %+v", got)
+	}
+	open := GenerateWeek(now, monday, templates, []ClassSnapshot{{Class: hold}}, nil, func() string { return "new" }, false)
+	if open.Created != 1 {
+		t.Fatalf("several rooms %+v", open)
 	}
 }
 

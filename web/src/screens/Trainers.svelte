@@ -18,7 +18,7 @@
 <button class="ghost add" type="button" data-testid="add-trainer" onclick={() => focusField('trainer-name')}>Добавить</button>
 {#each trainers as trainer (trainer.id)}
   <article class="card">
-    <strong>{trainer.name}</strong>
+    <a href={`#/admin/trainers/${trainer.id}`}><strong>{trainer.name}</strong></a>
     {#if !trainer.active}<p class="tag">выключен</p>{/if}
     <button class="ghost" class:off={!trainer.active} type="button" onclick={() => { void patchTrainer(trainer.id, { active: !trainer.active }) }}>
       {trainer.active ? 'Выключить' : 'Включить'}

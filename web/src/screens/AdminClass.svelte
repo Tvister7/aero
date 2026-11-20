@@ -30,12 +30,20 @@
 
   async function save(event: SubmitEvent) {
     event.preventDefault()
-    const response = await patchClass(classId, {
-      starts_at: localToIso(starts),
-      capacity: Number(capacity),
-      title,
-      trainer_id: trainerId,
-    })
+    const kind = card.ok ? card.data.kind : 'group'
+    const response = await patchClass(
+      classId,
+      kind === 'hold'
+        ? { starts_at: localToIso(starts), title }
+        : kind === 'individual'
+          ? { starts_at: localToIso(starts), title }
+          : {
+              starts_at: localToIso(starts),
+              capacity: Number(capacity),
+              title,
+              trainer_id: trainerId,
+            },
+    )
     error = response.ok ? 'Слот обновлён. Записанным уйдёт сообщение, когда бот будет подключён.' : response.message
   }
 
@@ -75,16 +83,20 @@
     <form class="card" onsubmit={save}>
       <label for="starts">Начало, время Тбилиси</label>
       <input id="starts" type="datetime-local" bind:value={starts} />
-      <label for="capacity">Вместимость</label>
-      <input id="capacity" type="number" min="1" bind:value={capacity} />
+      {#if card.data.kind === 'group'}
+        <label for="capacity">Вместимость</label>
+        <input id="capacity" type="number" min="1" bind:value={capacity} />
+      {/if}
       <label for="title">Название</label>
       <input id="title" bind:value={title} />
-      <label for="trainer">Тренер</label>
-      <select id="trainer" bind:value={trainerId}>
-        {#each trainers as trainer (trainer.id)}
-          <option value={trainer.id}>{trainer.name}</option>
-        {/each}
-      </select>
+      {#if card.data.kind === 'group'}
+        <label for="trainer">Тренер</label>
+        <select id="trainer" bind:value={trainerId}>
+          {#each trainers as trainer (trainer.id)}
+            <option value={trainer.id}>{trainer.name}</option>
+          {/each}
+        </select>
+      {/if}
       <button class="primary" type="submit">Перенести</button>
       <button class="danger" type="button" onclick={cancel}>Отменить занятие</button>
     </form>

@@ -10,6 +10,7 @@ type AttendRequest struct {
 	Active          *Attendance
 	Arrived         bool
 	ActorTelegramID string
+	ActorRole       string
 	AttendanceID    string
 	LedgerID        string
 }
@@ -39,12 +40,16 @@ func Attend(in AttendRequest) (AttendResult, *Error) {
 		if in.Balance > 0 {
 			payment = Paid
 		}
+		role := in.ActorRole
+		if role == "" {
+			role = ActorAdmin
+		}
 		row := &Attendance{
 			ID:              in.AttendanceID,
 			BookingID:       in.Booking.ID,
 			Active:          true,
 			Payment:         payment,
-			ActorRole:       ActorAdmin,
+			ActorRole:       role,
 			ActorTelegramID: in.ActorTelegramID,
 			MarkedAt:        in.Now,
 			LedgerID:        in.LedgerID,

@@ -27,6 +27,12 @@ export function priceLabel(min: string, max: string): string {
   return `${amount(left, min)}–${amount(right, max)} ₾`
 }
 
+const weekdays = ['', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье']
+
+export function weekdayName(day: number): string {
+  return weekdays[day] ?? ''
+}
+
 export function money(value: number | string): string {
   return Number(value).toFixed(2)
 }

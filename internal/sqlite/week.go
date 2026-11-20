@@ -24,11 +24,15 @@ func (d *DB) GenerateWeek(ctx context.Context, now time.Time, weekStart string) 
 		if err != nil {
 			return err
 		}
+		absences, err := loadAbsences(ctx, tx)
+		if err != nil {
+			return err
+		}
 		existing, known, err := loadWeek(ctx, tx, monday)
 		if err != nil {
 			return err
 		}
-		result := domain.GenerateWeek(now, monday, templates, existing, d.ids)
+		result := domain.GenerateWeek(now, monday, templates, existing, absences, d.ids, d.Exclusive)
 		for _, class := range result.Upserts {
 			if known[class.ID] {
 				if err := updateClass(ctx, tx, class); err != nil {
@@ -39,6 +43,9 @@ func (d *DB) GenerateWeek(ctx context.Context, now time.Time, weekStart string) 
 			if err := insertClass(ctx, tx, now, class); err != nil {
 				return err
 			}
+		}
+		if err := enrollWeek(ctx, tx, d.ids, now, monday); err != nil {
+			return err
 		}
 		outcome = WeekOutcome{
 			WeekStart: domain.DateKey(monday),
@@ -81,8 +88,8 @@ func loadSlots(ctx context.Context, q querier) ([]domain.TemplateSlot, error) {
 
 func loadWeek(ctx context.Context, q querier, monday time.Time) ([]domain.ClassSnapshot, map[string]bool, error) {
 	rows, err := q.QueryContext(ctx, `
-		select id, template_id, trainer_id, training_type_id, title, starts_at, ends_at, capacity, price_min, price_max, status
-		from classes where starts_at >= ? and starts_at < ?`, utc(monday), utc(monday.AddDate(0, 0, 7)))
+		select id, template_id, trainer_id, training_type_id, title, starts_at, ends_at, capacity, price_min, price_max, status, kind
+		from classes where starts_at < ? and ends_at > ?`, utc(monday.AddDate(0, 0, 7)), utc(monday))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -91,13 +98,19 @@ func loadWeek(ctx context.Context, q querier, monday time.Time) ([]domain.ClassS
 	known := map[string]bool{}
 	for rows.Next() {
 		var class domain.Class
-		var template sql.NullString
+		var template, trainer, typeID sql.NullString
 		var start, end string
-		if err := rows.Scan(&class.ID, &template, &class.TrainerID, &class.TypeID, &class.Title, &start, &end, &class.Capacity, &class.PriceMin, &class.PriceMax, &class.Status); err != nil {
+		if err := rows.Scan(&class.ID, &template, &trainer, &typeID, &class.Title, &start, &end, &class.Capacity, &class.PriceMin, &class.PriceMax, &class.Status, &class.Kind); err != nil {
 			return nil, nil, err
 		}
 		if template.Valid {
 			class.TemplateID = template.String
+		}
+		if trainer.Valid {
+			class.TrainerID = trainer.String
+		}
+		if typeID.Valid {
+			class.TypeID = typeID.String
 		}
 		if class.StartsAt, err = parseTime(start); err != nil {
 			return nil, nil, err

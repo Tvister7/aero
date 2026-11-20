@@ -28,8 +28,25 @@ type WeekResult struct {
 	Upserts []Class
 }
 
-func GenerateWeek(now, monday time.Time, templates []TemplateSlot, existing []ClassSnapshot, ids func() string) WeekResult {
+type Absence struct {
+	TrainerID string
+	StartsOn  string
+	EndsOn    string
+}
+
+func OnLeave(absences []Absence, trainerID string, start time.Time) bool {
+	day := DateKey(start)
+	for _, item := range absences {
+		if item.TrainerID == trainerID && item.StartsOn <= day && day <= item.EndsOn {
+			return true
+		}
+	}
+	return false
+}
+
+func GenerateWeek(now, monday time.Time, templates []TemplateSlot, existing []ClassSnapshot, absences []Absence, ids func() string, exclusive bool) WeekResult {
 	var result WeekResult
+	occupied := append([]ClassSnapshot{}, existing...)
 	for _, template := range templates {
 		if !template.Active || !template.TrainerActive {
 			continue
@@ -38,18 +55,45 @@ func GenerateWeek(now, monday time.Time, templates []TemplateSlot, existing []Cl
 		if err != nil || !start.After(now) {
 			continue
 		}
-		if found, ok := snapshot(existing, template.TrainerID, start); ok {
-			if found.Class.Status != Scheduled {
+		if OnLeave(absences, template.TrainerID, start) {
+			continue
+		}
+		end := start.Add(time.Duration(template.DurationMinutes) * time.Minute)
+		if found, ok := snapshot(occupied, template.TrainerID, start); ok {
+			if found.Class.Status != Scheduled || !groupKind(found.Class.Kind) {
+				continue
+			}
+			next := applyTemplate(found, template, start)
+			if Blocks(exclusive, next.StartsAt, next.EndsAt, occupied, next.ID) {
 				continue
 			}
 			result.Updated++
-			result.Upserts = append(result.Upserts, applyTemplate(found, template, start))
+			result.Upserts = append(result.Upserts, next)
+			replaceSnapshot(&occupied, next)
 			continue
 		}
+		if Blocks(exclusive, start, end, occupied, "") {
+			continue
+		}
+		class := newClass(ids(), template, start)
 		result.Created++
-		result.Upserts = append(result.Upserts, newClass(ids(), template, start))
+		result.Upserts = append(result.Upserts, class)
+		occupied = append(occupied, ClassSnapshot{Class: class})
 	}
 	return result
+}
+
+func groupKind(kind string) bool {
+	return kind == "" || kind == KindGroup
+}
+
+func replaceSnapshot(occupied *[]ClassSnapshot, class Class) {
+	for i := range *occupied {
+		if (*occupied)[i].Class.ID == class.ID {
+			(*occupied)[i].Class = class
+			return
+		}
+	}
 }
 
 func snapshot(existing []ClassSnapshot, trainerID string, start time.Time) (ClassSnapshot, bool) {
@@ -74,6 +118,9 @@ func applyTemplate(found ClassSnapshot, template TemplateSlot, start time.Time) 
 	class.PriceMin = template.PriceMin
 	class.PriceMax = template.PriceMax
 	class.Status = Scheduled
+	if class.Kind == "" {
+		class.Kind = KindGroup
+	}
 	return class
 }
 
@@ -90,5 +137,6 @@ func newClass(id string, template TemplateSlot, start time.Time) Class {
 		PriceMin:   template.PriceMin,
 		PriceMax:   template.PriceMax,
 		Status:     Scheduled,
+		Kind:       KindGroup,
 	}
 }

@@ -1,5 +1,6 @@
 export type BookingPolicy = 'postpay' | 'restricted'
 export type ClassStatus = 'scheduled' | 'cancelled'
+export type ClassKind = 'group' | 'individual' | 'hold'
 export type BookingStatus = 'booked' | 'cancelled'
 export type ReminderState = 'pending' | 'sent' | 'cancelled' | 'skipped'
 export type LedgerReason = 'grant' | 'attend' | 'reversal'
@@ -20,6 +21,7 @@ export type ErrorCode =
   | 'SAME_CLASS'
   | 'NO_CREDITS'
   | 'ATTENDANCE_TOO_EARLY'
+  | 'STUDIO_BUSY'
 
 export type ApiError = { ok: false; error_code: ErrorCode; message: string }
 
@@ -35,7 +37,41 @@ export type Trainer = {
   id: string
   name: string
   active: boolean
+  about: string
+  phone: string
   telegram_user_id: string | null
+}
+
+export type Absence = {
+  id: string
+  starts_on: string
+  ends_on: string
+}
+
+export type TrainerDetail = Trainer & { absences: Absence[] }
+
+export type Visit = {
+  title: string
+  trainer_name: string
+  starts_at: string
+  payment: 'paid' | 'unpaid'
+}
+
+export type EnrollmentOption = {
+  template_id: string
+  trainer_id: string
+  trainer_name: string
+  title: string
+  weekday: number
+  start_time: string
+  enrolled: boolean
+}
+
+export type TrainerStats = {
+  from: string
+  to: string
+  clients: number
+  attends: number
 }
 
 export type TrainingType = {
@@ -72,6 +108,7 @@ export type ClassRow = {
   price_min: string
   price_max: string
   status: ClassStatus
+  kind?: ClassKind
 }
 
 export type ClassView = {
@@ -86,7 +123,15 @@ export type ClassView = {
   price_min: string
   price_max: string
   color: string
+  training_type_id: string
+  template_id?: string | null
   status: ClassStatus
+  kind: ClassKind
+}
+
+export type ClientName = {
+  id: string
+  name: string
 }
 
 export type Client = {
@@ -157,6 +202,14 @@ export type Database = {
   attendances: Attendance[]
   opens: AppOpen[]
   studio: StudioProfile
+  absences: AbsenceRow[]
+}
+
+export type AbsenceRow = {
+  id: string
+  trainer_id: string
+  starts_on: string
+  ends_on: string
 }
 
 export type TrainerView = Pick<Trainer, 'id' | 'name' | 'active'>
@@ -200,6 +253,7 @@ export type Me = {
   balance: number
   policy: BookingPolicy
   is_admin: boolean
+  is_trainer: boolean
   visited: boolean
 }
 
