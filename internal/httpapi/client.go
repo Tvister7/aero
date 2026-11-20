@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/Tvister7/aero/internal/domain"
+	"github.com/Tvister7/aero/internal/sqlite"
 	"github.com/Tvister7/aero/internal/telegram"
 )
 
@@ -102,7 +103,7 @@ func (s *Server) book(w http.ResponseWriter, r *http.Request, user telegram.User
 // Профиль открывшего приложение.
 //
 // @Summary Профиль
-// @Description is_admin истинен, если telegram id есть в ADMIN_IDS. Новый человек создаётся с policy postpay. visited истинен, если была хотя бы одна явка, в том числе позже снятая.
+// @Description is_admin истинен, если telegram id есть в ADMIN_IDS. is_trainer истинен, если этот id привязан к активному тренеру. Новый человек создаётся с policy postpay. visited истинен, если была хотя бы одна явка, в том числе позже снятая.
 // @Tags Клиент
 // @Security TMA
 // @Success 200 {object} MeResponse
@@ -179,6 +180,24 @@ func (s *Server) myBookings(w http.ResponseWriter, r *http.Request, user telegra
 	writeOK(w, map[string]any{"data": data})
 }
 
+// История посещений.
+//
+// @Summary Мои посещения
+// @Description Только активные явки. Снятая отметка, отмена и неявка сюда не попадают. Новые сверху.
+// @Tags Клиент
+// @Security TMA
+// @Success 200 {object} VisitsResponse
+// @Failure 401 {object} ErrorBody
+// @Failure 500 {object} ErrorBody
+// @Router /me/visits [get]
+func (s *Server) visits(w http.ResponseWriter, r *http.Request, user telegram.User) {
+	data, err := s.DB.Visits(r.Context(), asUser(user))
+	if finish(w, err) {
+		return
+	}
+	writeOK(w, map[string]any{"data": data})
+}
+
 // Отмена своей записи.
 //
 // @Summary Отменить запись
@@ -203,7 +222,7 @@ func (s *Server) cancel(w http.ResponseWriter, r *http.Request, user telegram.Us
 // Перенос своей записи.
 //
 // @Summary Перенести запись
-// @Description Порог 6 часов считается по старому началу. Баланс не проверяется и не меняется.
+// @Description Порог 6 часов считается по старому началу. Занятие из шаблона не переносится. Новое занятие должно быть того же вида. Баланс не проверяется и не меняется.
 // @Tags Клиент
 // @Security TMA
 // @Param id path string true "Идентификатор записи"
@@ -226,4 +245,47 @@ func (s *Server) reschedule(w http.ResponseWriter, r *http.Request, user telegra
 		return
 	}
 	writeOK(w, map[string]any{"booking_id": r.PathValue("id"), "class": view})
+}
+
+// Постоянные отметки шаблонов.
+//
+// @Summary Мои постоянные записи
+// @Description Активные шаблоны активных тренеров. enrolled истинен, если клиент отметил слот.
+// @Tags Клиент
+// @Security TMA
+// @Success 200 {object} EnrollmentsResponse
+// @Failure 401 {object} ErrorBody
+// @Failure 500 {object} ErrorBody
+// @Router /me/enrollments [get]
+func (s *Server) enrollments(w http.ResponseWriter, r *http.Request, user telegram.User) {
+	data, err := s.DB.EnrollmentOptions(r.Context(), s.now(), asUser(user))
+	if finish(w, err) {
+		return
+	}
+	writeOK(w, map[string]any{"data": data})
+}
+
+// Замена постоянных отметок.
+//
+// @Summary Сохранить постоянные записи
+// @Description Список заменяет отметки целиком. Отмена одной уже созданной записи отметку не снимает.
+// @Tags Клиент
+// @Security TMA
+// @Param body body sqlite.EnrollmentInput true "Отмеченные шаблоны"
+// @Success 200 {object} EnrollmentsResponse
+// @Failure 400 {object} ErrorBody
+// @Failure 401 {object} ErrorBody
+// @Failure 500 {object} ErrorBody
+// @Router /me/enrollments [put]
+func (s *Server) putEnrollments(w http.ResponseWriter, r *http.Request, user telegram.User) {
+	var body sqlite.EnrollmentInput
+	if err := readJSON(r, &body); err != nil {
+		writeDomain(w, err)
+		return
+	}
+	data, err := s.DB.ReplaceEnrollments(r.Context(), s.now(), asUser(user), body.TemplateIDs)
+	if finish(w, err) {
+		return
+	}
+	writeOK(w, map[string]any{"data": data})
 }

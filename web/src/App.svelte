@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { getMe, ping, roleSwitchVisible, setPreviewAdmin } from './api'
+  import { getMe, ping, roleSwitchVisible, setPreviewRole } from './api'
   import AdminClass from './screens/AdminClass.svelte'
   import AdminMenu from './screens/AdminMenu.svelte'
   import Bookings from './screens/Bookings.svelte'
@@ -15,8 +15,11 @@
   import Studio from './screens/Studio.svelte'
   import StudioEdit from './screens/StudioEdit.svelte'
   import Templates from './screens/Templates.svelte'
+  import TrainerCard from './screens/TrainerCard.svelte'
+  import TrainerHome from './screens/TrainerHome.svelte'
   import Trainers from './screens/Trainers.svelte'
   import Types from './screens/Types.svelte'
+  import Visits from './screens/Visits.svelte'
 
   let hash = $state(window.location.hash || '#/')
 
@@ -29,29 +32,49 @@
     return () => window.removeEventListener('hashchange', sync)
   })
 
-  function parse(value: string): { name: string; id?: string; area?: 'admin' } {
+  type Role = 'client' | 'trainer' | 'admin'
+
+  function parse(value: string): { name: string; id?: string; area?: 'admin' | 'trainer' } {
     const parts = value.replace(/^#/, '').split('/').filter(Boolean)
     const head = parts[0] ?? ''
     if (!head) return { name: 'schedule' }
     if (head === 'class' && parts[1]) return { name: 'class', id: parts[1] }
     if (head === 'bookings') return { name: 'bookings' }
     if (head === 'profile') return { name: 'profile' }
+    if (head === 'visits') return { name: 'visits' }
     if (head === 'studio') return { name: 'studio' }
+    if (head === 'trainer') return { name: 'trainer', area: 'trainer' }
     if (head !== 'admin') return { name: 'schedule' }
     const section = parts[1] ?? ''
     if (!section) return { name: 'admin', area: 'admin' }
     if (section === 'class' && parts[2]) return { name: 'admin-class', id: parts[2], area: 'admin' }
     if (section === 'clients' && parts[2]) return { name: 'client', id: parts[2], area: 'admin' }
+    if (section === 'trainers' && parts[2]) return { name: 'admin-trainer', id: parts[2], area: 'admin' }
     return { name: `admin-${section}`, area: 'admin' }
   }
 
   let route = $derived(parse(hash))
   let me = $derived(getMe())
   let serverAdmin = $derived(Boolean(me.data?.is_admin))
+  let serverTrainer = $derived(Boolean(me.data?.is_trainer))
   let preview = roleSwitchVisible()
-  let clientView = $state(false)
-  let admin = $derived(preview ? serverAdmin : serverAdmin && !clientView)
-  let showSwitch = $derived(preview || serverAdmin)
+  let picked = $state<Role | ''>('')
+  let role = $derived.by((): Role => {
+    if (preview) {
+      if (serverAdmin) return 'admin'
+      if (serverTrainer) return 'trainer'
+      return 'client'
+    }
+    if (picked === 'admin' && serverAdmin) return 'admin'
+    if (picked === 'trainer' && serverTrainer) return 'trainer'
+    if (picked === 'client') return 'client'
+    if (serverAdmin) return 'admin'
+    return 'client'
+  })
+  let showClient = $derived(preview || serverAdmin || serverTrainer)
+  let showTrainer = $derived(preview || serverTrainer)
+  let showAdmin = $derived(preview || serverAdmin)
+  let showSwitch = $derived(showTrainer || showAdmin)
 
   let header = $state<HTMLElement | undefined>(undefined)
 
@@ -67,21 +90,24 @@
 
   $effect(() => {
     if (me.pending) return
-    if (route.area === 'admin' && !admin) location.hash = '#/'
+    if (route.area === 'admin' && role !== 'admin') location.hash = role === 'trainer' ? '#/trainer' : '#/'
+    if (route.area === 'trainer' && role !== 'trainer') location.hash = role === 'admin' ? '#/admin' : '#/'
   })
 
   let back = $derived.by(() => {
+    if (route.name === 'visits') return '#/profile'
     if (route.name === 'class') return '#/'
     if (route.name === 'admin-class') return '#/admin/schedule'
     if (route.name === 'client') return '#/admin/clients'
+    if (route.name === 'admin-trainer') return '#/admin/trainers'
     if (route.name.startsWith('admin-')) return '#/admin'
     return ''
   })
 
-  function choose(asAdmin: boolean) {
-    if (preview) setPreviewAdmin(asAdmin)
-    else clientView = !asAdmin
-    location.hash = asAdmin ? '#/admin' : '#/'
+  function choose(next: Role) {
+    if (preview) setPreviewRole(next)
+    else picked = next
+    location.hash = next === 'admin' ? '#/admin' : next === 'trainer' ? '#/trainer' : '#/'
   }
 </script>
 
@@ -94,8 +120,9 @@
     {/if}
     {#if showSwitch}
       <div class="switch">
-        <button type="button" aria-pressed={!admin} data-testid="role-client" onclick={() => choose(false)}>Клиент</button>
-        <button type="button" aria-pressed={admin} data-testid="role-admin" onclick={() => choose(true)}>Админ</button>
+        {#if showClient}<button type="button" aria-pressed={role === 'client'} data-testid="role-client" onclick={() => choose('client')}>Клиент</button>{/if}
+        {#if showTrainer}<button type="button" aria-pressed={role === 'trainer'} data-testid="role-trainer" onclick={() => choose('trainer')}>Тренер</button>{/if}
+        {#if showAdmin}<button type="button" aria-pressed={role === 'admin'} data-testid="role-admin" onclick={() => choose('admin')}>Админ</button>{/if}
       </div>
     {/if}
   </header>
@@ -109,6 +136,8 @@
       <Bookings />
     {:else if route.name === 'profile'}
       <Profile />
+    {:else if route.name === 'visits'}
+      <Visits />
     {:else if route.name === 'studio'}
       <Studio />
     {:else if route.name === 'admin'}
@@ -123,6 +152,10 @@
       <Templates />
     {:else if route.name === 'admin-new'}
       <NewClass />
+    {:else if route.name === 'trainer'}
+      <TrainerHome />
+    {:else if route.name === 'admin-trainer'}
+      <TrainerCard trainerId={route.id ?? ''} />
     {:else if route.name === 'admin-trainers'}
       <Trainers />
     {:else if route.name === 'admin-types'}
@@ -139,11 +172,13 @@
   </main>
 
   <nav class="nav">
-    {#if admin}
+    {#if role === 'admin'}
       <a href="#/admin/roster" class:active={route.name === 'admin-roster'}>Журнал</a>
       <a href="#/admin/schedule" class:active={route.name === 'admin-schedule'}>Неделя</a>
       <a href="#/admin/clients" class:active={route.name === 'admin-clients' || route.name === 'client'}>Клиенты</a>
       <a href="#/admin" class:active={route.name === 'admin'}>Ещё</a>
+    {:else if role === 'trainer'}
+      <a href="#/trainer" class:active={route.name === 'trainer'}>Занятия</a>
     {:else}
       <a href="#/" class:active={route.name === 'schedule' || route.name === 'class'}>Расписание</a>
       <a href="#/bookings" class:active={route.name === 'bookings'}>Записи</a>

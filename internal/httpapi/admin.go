@@ -61,7 +61,7 @@ func (s *Server) createTrainer(w http.ResponseWriter, r *http.Request, _ telegra
 // @Tags Админ
 // @Security TMA
 // @Param id path string true "Идентификатор тренера"
-// @Param body body TrainerPatch true "Меняющиеся поля"
+// @Param body body sqlite.TrainerFields true "Меняющиеся поля"
 // @Success 200 {object} TrainerResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -69,12 +69,12 @@ func (s *Server) createTrainer(w http.ResponseWriter, r *http.Request, _ telegra
 // @Failure 500 {object} ErrorBody
 // @Router /admin/trainers/{id} [patch]
 func (s *Server) patchTrainer(w http.ResponseWriter, r *http.Request, _ telegram.User) {
-	var body TrainerPatch
+	var body sqlite.TrainerFields
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
 	}
-	item, err := s.DB.PatchTrainer(r.Context(), r.PathValue("id"), body.Name, body.Active)
+	item, err := s.DB.PatchTrainer(r.Context(), r.PathValue("id"), body)
 	if finish(w, err) {
 		return
 	}
@@ -374,7 +374,7 @@ func (s *Server) attendance(w http.ResponseWriter, r *http.Request, user telegra
 		writeDomain(w, domain.Fail(domain.Validation))
 		return
 	}
-	out, err := s.DB.Attend(r.Context(), s.now(), r.PathValue("id"), *body.Arrived, strconv.FormatInt(user.ID, 10))
+	out, err := s.DB.Attend(r.Context(), s.now(), r.PathValue("id"), *body.Arrived, domain.ActorAdmin, strconv.FormatInt(user.ID, 10))
 	if finish(w, err) {
 		return
 	}
@@ -571,4 +571,58 @@ func (s *Server) putStudio(w http.ResponseWriter, r *http.Request, _ telegram.Us
 		return
 	}
 	writeOK(w, map[string]any{"data": saved})
+}
+
+// Резерв зала без записи.
+//
+// @Summary Зарезервировать время
+// @Description Клиент видит «Студия занята». Админ и тренеры видят название.
+// @Tags Админ
+// @Security TMA
+// @Param body body sqlite.HoldInput true "Название и начало"
+// @Success 200 {object} ClassResponse
+// @Failure 400 {object} ErrorBody
+// @Failure 401 {object} ErrorBody
+// @Failure 403 {object} ErrorBody
+// @Failure 409 {object} ErrorBody
+// @Failure 500 {object} ErrorBody
+// @Router /admin/holds [post]
+func (s *Server) createHold(w http.ResponseWriter, r *http.Request, _ telegram.User) {
+	var body sqlite.HoldInput
+	if err := readJSON(r, &body); err != nil {
+		writeDomain(w, err)
+		return
+	}
+	view, err := s.DB.CreateHold(r.Context(), s.now(), body.Title, body.StartsAt, body.DurationMinutes)
+	if finish(w, err) {
+		return
+	}
+	writeOK(w, map[string]any{"data": view})
+}
+
+// Индивидуальное с назначенным клиентом.
+//
+// @Summary Создать индивидуальное
+// @Description В общее расписание не попадает. Клиент видит его в своих записях.
+// @Tags Админ
+// @Security TMA
+// @Param body body sqlite.IndividualInput true "Тренер, клиент и начало"
+// @Success 200 {object} ClassResponse
+// @Failure 400 {object} ErrorBody
+// @Failure 401 {object} ErrorBody
+// @Failure 403 {object} ErrorBody
+// @Failure 409 {object} ErrorBody
+// @Failure 500 {object} ErrorBody
+// @Router /admin/individuals [post]
+func (s *Server) createIndividual(w http.ResponseWriter, r *http.Request, _ telegram.User) {
+	var body sqlite.IndividualInput
+	if err := readJSON(r, &body); err != nil {
+		writeDomain(w, err)
+		return
+	}
+	view, err := s.DB.CreateIndividual(r.Context(), s.now(), body.TrainerID, body.ClientID, body.StartsAt, body.DurationMinutes)
+	if finish(w, err) {
+		return
+	}
+	writeOK(w, map[string]any{"data": view})
 }

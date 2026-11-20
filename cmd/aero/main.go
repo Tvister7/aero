@@ -70,6 +70,7 @@ func serve() error {
 		return err
 	}
 	defer db.Close()
+	db.Exclusive = studioExclusive(os.Getenv("STUDIO_EXCLUSIVE"))
 	bot := telegram.NewBot(token)
 	api := &httpapi.Server{
 		DB: db, Bot: bot, Admins: admins, Origin: os.Getenv("CORS_ORIGIN"), Token: token,
@@ -126,6 +127,15 @@ func seed(path string) error {
 	}
 	fmt.Printf("trainers %d, types %d, templates %d\n", counts.Trainers, counts.Types, counts.Templates)
 	return nil
+}
+
+func studioExclusive(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return true
+	}
 }
 
 func parseAdmins(raw string) (map[int64]struct{}, error) {

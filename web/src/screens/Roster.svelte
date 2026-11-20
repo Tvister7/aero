@@ -4,6 +4,7 @@
 
   let rows = $derived(todayRoster())
   let error = $state('')
+  let openId = $state('')
 
   async function mark(bookingId: string, arrived: boolean) {
     const response = await setAttendance(bookingId, arrived)
@@ -17,24 +18,31 @@
   <p class="card muted">Сегодня занятий нет.</p>
 {/if}
 {#each rows as row (row.class.id)}
+  {@const arrived = row.bookings.filter((booking) => booking.attendance).length}
+  {@const open = openId === row.class.id}
   <article class="card">
-    <strong>{row.class.title}</strong>
-    <p class="meta">{formatWhen(row.class.starts_at)} · {row.class.trainer.name}</p>
-    {#each row.bookings as booking (booking.booking_id)}
-      <p>{booking.name}</p>
-      {#if booking.attendance}
-        <p class="meta">пришёл, {booking.attendance.payment === 'paid' ? 'занятие списано' : 'без покрытия'}</p>
-        <button class="ghost" type="button" onclick={() => mark(booking.booking_id, false)}>Снять отметку</button>
+    <button class="fold" type="button" aria-expanded={open} onclick={() => (openId = open ? '' : row.class.id)}>
+      <strong>{row.class.title}</strong>
+      <p class="meta">{formatWhen(row.class.starts_at)} · {row.class.trainer.name}</p>
+      <p class="meta">пришло {arrived} из {row.bookings.length}</p>
+    </button>
+    {#if open}
+      {#each row.bookings as booking (booking.booking_id)}
+        <p>{booking.name}</p>
+        {#if booking.attendance}
+          <p class="meta">пришёл, {booking.attendance.payment === 'paid' ? 'занятие списано' : 'без покрытия'}</p>
+          <button class="ghost" type="button" onclick={() => mark(booking.booking_id, false)}>Снять отметку</button>
+        {:else}
+          <button
+            class="primary"
+            type="button"
+            data-testid={hoursUntil(row.class.starts_at) <= 0.5 ? 'mark-arrived' : 'mark-early'}
+            onclick={() => mark(booking.booking_id, true)}
+          >Пришёл</button>
+        {/if}
       {:else}
-        <button
-          class="primary"
-          type="button"
-          data-testid={hoursUntil(row.class.starts_at) <= 0.5 ? 'mark-arrived' : 'mark-early'}
-          onclick={() => mark(booking.booking_id, true)}
-        >Пришёл</button>
-      {/if}
-    {:else}
-      <p class="muted">Записей нет.</p>
-    {/each}
+        <p class="muted">Записей нет.</p>
+      {/each}
+    {/if}
   </article>
 {/each}

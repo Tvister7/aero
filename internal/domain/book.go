@@ -27,7 +27,7 @@ type BookResult struct {
 }
 
 func Book(in BookRequest) (BookResult, *Error) {
-	if in.Class.Status != Scheduled {
+	if in.Class.Status != Scheduled || in.Class.Kind == KindIndividual || in.Class.Kind == KindHold {
 		return BookResult{}, Fail(ClassNotFound)
 	}
 	if !in.Class.StartsAt.After(in.Now) {
@@ -122,7 +122,13 @@ func Reschedule(in RescheduleRequest) (Booking, Event, *Error) {
 	if in.Next.ID == in.Booking.ClassID {
 		return Booking{}, Event{}, Fail(SameClass)
 	}
+	if in.Current.TemplateID != "" || in.Current.Kind == KindIndividual || in.Current.Kind == KindHold {
+		return Booking{}, Event{}, Fail(Validation)
+	}
 	if in.Next.Status != Scheduled || !in.Next.StartsAt.After(in.Now) {
+		return Booking{}, Event{}, Fail(NewClassNotFound)
+	}
+	if in.Next.TypeID == "" || in.Next.TypeID != in.Current.TypeID {
 		return Booking{}, Event{}, Fail(NewClassNotFound)
 	}
 	if in.NextBooked >= in.Next.Capacity {

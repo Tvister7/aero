@@ -1,6 +1,7 @@
 import type {
   ApiError,
   ClassView,
+  ClientName,
   ClientSummary,
   ErrorCode,
   Me,
@@ -10,6 +11,10 @@ import type {
   TrainingType,
   Trainer,
   ClassTemplate,
+  EnrollmentOption,
+  TrainerDetail,
+  Visit,
+  TrainerStats,
 } from './types'
 import { addDays, todayKey } from '../lib/time'
 
@@ -27,6 +32,7 @@ const CODES = new Set<ErrorCode>([
   'SAME_CLASS',
   'NO_CREDITS',
   'ATTENDANCE_TOO_EARLY',
+  'STUDIO_BUSY',
 ])
 
 export const revision = $state({ n: 0 })
@@ -40,6 +46,7 @@ const emptyMe: Me = {
   balance: 0,
   policy: 'postpay',
   is_admin: false,
+  is_trainer: false,
   visited: false,
 }
 
@@ -154,6 +161,8 @@ export function roleSwitchVisible() {
 
 export function setPreviewAdmin(_value: boolean): void {}
 
+export function setPreviewRole(_role: 'client' | 'trainer' | 'admin'): void {}
+
 export function getStudio() {
   const value = cached('studio', () => request('GET', '/studio'))
   const data = dataOf<StudioProfile>(value)
@@ -217,6 +226,10 @@ export function myBookings() {
   return readList<{ booking_id: string; class: ClassView }>('bookings', '/me/bookings')
 }
 
+export function myVisits() {
+  return readList<Visit>('visits', '/me/visits')
+}
+
 export async function cancelBooking(id: string) {
   return send('POST', `/bookings/${id}/cancel`) as Promise<ApiError | { ok: true; booking_id: string }>
 }
@@ -235,8 +248,121 @@ export async function createTrainer(name: string) {
   return send('POST', '/admin/trainers', { name }) as Promise<ApiError | { ok: true; data: Trainer }>
 }
 
-export async function patchTrainer(id: string, body: { name?: string; active?: boolean }) {
+export async function patchTrainer(
+  id: string,
+  body: { name?: string; active?: boolean; about?: string; phone?: string; telegram_user_id?: string },
+) {
   return send('PATCH', `/admin/trainers/${id}`, body) as Promise<ApiError | { ok: true; data: Trainer }>
+}
+
+const emptyTrainer: TrainerDetail = {
+  id: '',
+  name: '',
+  active: true,
+  about: '',
+  phone: '',
+  telegram_user_id: null,
+  absences: [],
+}
+
+export function getTrainer(id: string) {
+  const value = cached('trainer:' + id, () => request('GET', `/admin/trainers/${id}`))
+  const data = dataOf<TrainerDetail>(value)
+  if (data) return { ok: true as const, data: { ...data, absences: data.absences ?? [] }, pending: false }
+  if (value && !succeeded(value)) return asError(value)
+  return { ok: true as const, data: emptyTrainer, pending: value === null }
+}
+
+export async function addAbsence(id: string, startsOn: string, endsOn: string) {
+  return send('POST', `/admin/trainers/${id}/absences`, { starts_on: startsOn, ends_on: endsOn }) as Promise<
+    ApiError | { ok: true; data: TrainerDetail }
+  >
+}
+
+export async function deleteAbsence(id: string, absenceId: string) {
+  return send('DELETE', `/admin/trainers/${id}/absences/${absenceId}`) as Promise<ApiError | { ok: true; data: TrainerDetail }>
+}
+
+export async function cancelTrainerClasses(id: string) {
+  return send('POST', `/admin/trainers/${id}/cancel-upcoming`) as Promise<ApiError | { ok: true }>
+}
+
+export async function deleteTrainer(id: string) {
+  return send('DELETE', `/admin/trainers/${id}`) as Promise<ApiError | { ok: true }>
+}
+
+export function listEnrollments() {
+  return readList<EnrollmentOption>('enrollments', '/me/enrollments')
+}
+
+export async function putEnrollments(templateIds: string[]) {
+  return send('PUT', '/me/enrollments', { template_ids: templateIds }) as Promise<
+    ApiError | { ok: true; data: EnrollmentOption[] }
+  >
+}
+
+export function getTrainerProfile() {
+  const value = cached('trainer-me', () => request('GET', '/trainer'))
+  const data = dataOf<Trainer>(value)
+  if (data) return { ok: true as const, data, pending: false }
+  if (value && !succeeded(value)) return asError(value)
+  return {
+    ok: true as const,
+    pending: value === null,
+    data: { id: '', name: '', active: true, about: '', phone: '', telegram_user_id: null },
+  }
+}
+
+export async function patchTrainerProfile(body: { about: string; phone: string }) {
+  return send('PATCH', '/trainer', body) as Promise<ApiError | { ok: true; data: Trainer }>
+}
+
+export function getTrainerSchedule(from: string, to: string) {
+  return readList<ClassView>('trainer-schedule:' + from + ':' + to, `/trainer/schedule?from=${from}&to=${to}`)
+}
+
+export function listTrainerTypes() {
+  return readList<TrainingType>('trainer-types', '/trainer/types')
+}
+
+export async function createTrainerClass(body: { training_type_id?: string; starts_at?: string; capacity?: number }) {
+  return send('POST', '/trainer/classes', body) as Promise<ApiError | { ok: true; data: ClassView }>
+}
+
+export function searchTrainerClients(query: string) {
+  return readList<ClientName>('trainer-clients:' + query, `/trainer/clients?q=${encodeURIComponent(query)}`)
+}
+
+export async function createTrainerIndividual(body: { client_id: string; starts_at: string; duration_minutes?: number }) {
+  return send('POST', '/trainer/individuals', body) as Promise<ApiError | { ok: true; data: ClassView }>
+}
+
+export async function moveTrainerClass(id: string, startsAt: string) {
+  return send('PATCH', `/trainer/classes/${id}`, { starts_at: startsAt }) as Promise<ApiError | { ok: true; data: ClassView }>
+}
+
+export async function cancelTrainerClass(id: string) {
+  return send('POST', `/trainer/classes/${id}/cancel`) as Promise<ApiError | { ok: true; data: ClassView }>
+}
+
+export function getTrainerRoster(id: string) {
+  const value = cached('trainer-roster:' + id, () => request('GET', `/trainer/classes/${id}/roster`))
+  const data = dataOf<RosterData>(value)
+  if (data) return { ok: true as const, data }
+  if (value && !succeeded(value)) return asError(value)
+  return { ok: false as const, error_code: 'VALIDATION' as const, message: '' }
+}
+
+export async function setTrainerAttendance(bookingId: string, arrived: boolean) {
+  return send('POST', `/trainer/bookings/${bookingId}/attendance`, { arrived }) as Promise<
+    ApiError | { ok: true; booking_id: string; attendance: { payment: string; marked_at: string } | null; balance: number }
+  >
+}
+
+export function trainerStats(from: string, to: string): { ok: true; data: TrainerStats } {
+  const value = cached('trainer-stats:' + from + ':' + to, () => request('GET', `/trainer/stats?from=${from}&to=${to}`))
+  const data = dataOf<TrainerStats>(value)
+  return { ok: true, data: data ?? { from, to, clients: 0, attends: 0 } }
 }
 
 export function listTypes() {
@@ -299,6 +425,19 @@ export async function generateWeek(weekStart?: string) {
   return send('POST', '/admin/weeks', { week_start: weekStart ?? '' }) as Promise<
     ApiError | { ok: true; week_start: string; week_end: string; created: number; updated: number }
   >
+}
+
+export async function createHold(body: { title: string; starts_at: string; duration_minutes?: number }) {
+  return send('POST', '/admin/holds', body) as Promise<ApiError | { ok: true; data: ClassView }>
+}
+
+export async function createIndividual(body: {
+  trainer_id: string
+  client_id: string
+  starts_at: string
+  duration_minutes?: number
+}) {
+  return send('POST', '/admin/individuals', body) as Promise<ApiError | { ok: true; data: ClassView }>
 }
 
 export async function createClass(body: {
@@ -385,7 +524,7 @@ export function todayRoster(): RosterData[] {
   const today = todayKey()
   const schedule = getAdminSchedule(today, today)
   return schedule.data.flatMap((item) => {
-    if (item.status === 'cancelled') return []
+    if (item.status === 'cancelled' || item.kind === 'hold') return []
     const roster = getRoster(item.id)
     return roster.ok ? [roster.data] : []
   })

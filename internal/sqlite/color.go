@@ -19,6 +19,24 @@ var keptTypeColors = map[string]string{
 	"Aero Yoga":          "#5c7a3a",
 }
 
+func ensureTrainerColumns(ctx context.Context, q querier) error {
+	for _, column := range []struct{ name, ddl string }{
+		{"about", `alter table trainers add column about text not null default ''`},
+		{"phone", `alter table trainers add column phone text not null default ''`},
+	} {
+		var found int
+		if err := q.QueryRowContext(ctx, `select count(*) from pragma_table_info('trainers') where name = ?`, column.name).Scan(&found); err != nil {
+			return err
+		}
+		if found == 0 {
+			if _, err := q.ExecContext(ctx, column.ddl); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func ensureTypeColors(ctx context.Context, q querier) error {
 	var columns int
 	if err := q.QueryRowContext(ctx, `select count(*) from pragma_table_info('training_types') where name = 'color'`).Scan(&columns); err != nil {

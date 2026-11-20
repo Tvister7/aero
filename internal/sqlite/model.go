@@ -14,6 +14,11 @@ type Trainer struct {
 	Name string `json:"name" example:"Лилия"`
 	// false скрывает тренера из новых шаблонов. Уже созданные занятия остаются.
 	Active bool `json:"active" example:"true"`
+	// Короткий текст «о тренере». Пустая строка — не заполнено.
+	About string `json:"about" example:"Йога и растяжка"`
+	Phone string `json:"phone" example:"+995555000000"`
+	// Telegram id клиента, если роль тренера выдана. Пусто — роли нет.
+	TelegramUserID string `json:"telegram_user_id" example:"1001"`
 }
 
 // TrainingType вид занятия. Цена — подпись на экране, не число занятий на балансе.
@@ -73,8 +78,38 @@ type ClassView struct {
 	PriceMax   string `json:"price_max" example:"40.00"`
 	// Цвет типа занятия. Хранится на типе, поэтому скрытие другого типа его не меняет.
 	Color string `json:"color" example:"#5c7a3a"`
+	// Вид занятия. Перенос записи возможен только на тот же вид.
+	TrainingTypeID string `json:"training_type_id" example:"6ba7b812-9dad-11d1-80b4-00c04fd430c8"`
+	// Шаблон, из которого собрано занятие. Пусто у разового слота: только его можно перенести.
+	TemplateID *string `json:"template_id,omitempty" example:"6ba7b813-9dad-11d1-80b4-00c04fd430c8"`
 	// Только админские ответы. У клиента поле отсутствует.
 	Status *string `json:"status,omitempty" example:"scheduled" enums:"scheduled,cancelled"`
+	// group — обычное занятие, individual — закрытый час одного клиента, hold — резерв зала.
+	Kind string `json:"kind" example:"group" enums:"group,individual,hold"`
+}
+
+// ClientName имя клиента для выбора на индивидуальное. Телефон сюда не входит.
+// @Description Имя клиента для выбора на индивидуальное. Телефон сюда не входит.
+type ClientName struct {
+	ID   string `json:"id" example:"6ba7b815-9dad-11d1-80b4-00c04fd430c8"`
+	Name string `json:"name" example:"Анна"`
+}
+
+// HoldInput резерв зала. duration_minutes по умолчанию 60.
+// @Description Резерв зала. duration_minutes по умолчанию 60.
+type HoldInput struct {
+	Title           string `json:"title" example:"Съёмка"`
+	StartsAt        string `json:"starts_at" example:"2026-09-12T19:00:00+04:00"`
+	DurationMinutes *int   `json:"duration_minutes" example:"60"`
+}
+
+// IndividualInput закрытое занятие с уже выбранным клиентом. duration_minutes по умолчанию 60.
+// @Description Закрытое занятие с уже выбранным клиентом. duration_minutes по умолчанию 60.
+type IndividualInput struct {
+	TrainerID       string `json:"trainer_id" example:"6ba7b811-9dad-11d1-80b4-00c04fd430c8"`
+	ClientID        string `json:"client_id" example:"6ba7b815-9dad-11d1-80b4-00c04fd430c8"`
+	StartsAt        string `json:"starts_at" example:"2026-09-12T19:00:00+04:00"`
+	DurationMinutes *int   `json:"duration_minutes" example:"60"`
 }
 
 // BookOutcome результат записи. HTTP добавляет сверху ok.
@@ -91,6 +126,15 @@ type BookOutcome struct {
 type MyBooking struct {
 	BookingID string    `json:"booking_id" example:"6ba7b814-9dad-11d1-80b4-00c04fd430c8"`
 	Class     ClassView `json:"class"`
+}
+
+// Visit состоявшееся посещение. payment paid — занятие списано, unpaid — явка без покрытия.
+// @Description Состоявшееся посещение. payment paid — занятие списано, unpaid — явка без покрытия.
+type Visit struct {
+	Title       string `json:"title" example:"Aero Yoga"`
+	TrainerName string `json:"trainer_name" example:"Лилия"`
+	StartsAt    string `json:"starts_at" example:"2026-09-03T19:00:00+04:00"`
+	Payment     string `json:"payment" example:"paid" enums:"paid,unpaid"`
 }
 
 // AttendanceView активная явка. payment: paid, если до списания баланс был больше нуля, иначе unpaid.
@@ -123,6 +167,8 @@ type Me struct {
 	// Была хотя бы одна явка, в том числе позже снятая.
 	Visited bool `json:"visited" example:"false"`
 	IsAdmin bool `json:"is_admin" example:"false"`
+	// Telegram id совпадает с активным тренером.
+	IsTrainer bool `json:"is_trainer" example:"false"`
 }
 
 // ClientSummary строка списка клиентов.
@@ -263,4 +309,73 @@ type TemplateInput struct {
 	StartTime      *string `json:"start_time" example:"19:00"`
 	Capacity       *int    `json:"capacity" example:"6"`
 	Active         *bool   `json:"active" example:"true"`
+}
+
+// TrainerFields правка карточки тренера. Отсутствующее поле не меняется.
+// Пустой telegram_user_id снимает привязку.
+// @Description Правка карточки тренера. Отсутствующее поле не меняется. Пустой telegram_user_id снимает привязку.
+type TrainerFields struct {
+	Name           *string `json:"name" example:"Лилия"`
+	Active         *bool   `json:"active" example:"false"`
+	About          *string `json:"about" example:"Йога и растяжка"`
+	Phone          *string `json:"phone" example:"+995555000000"`
+	TelegramUserID *string `json:"telegram_user_id" example:"1001"`
+}
+
+// Absence отпуск тренера, даты включительно, Asia/Tbilisi.
+// @Description Отпуск тренера, даты включительно, Asia/Tbilisi.
+type Absence struct {
+	ID       string `json:"id" example:"6ba7b817-9dad-11d1-80b4-00c04fd430c8"`
+	StartsOn string `json:"starts_on" example:"2026-12-01"`
+	EndsOn   string `json:"ends_on" example:"2026-12-07"`
+}
+
+// TrainerDetail карточка тренера и его отпуска.
+// @Description Карточка тренера и его отпуска.
+type TrainerDetail struct {
+	Trainer
+	Absences []Absence `json:"absences"`
+}
+
+// AbsenceInput новый отпуск. Обе даты обязательны, конец не раньше начала.
+// @Description Новый отпуск. Обе даты обязательны, конец не раньше начала.
+type AbsenceInput struct {
+	StartsOn string `json:"starts_on" example:"2026-12-01"`
+	EndsOn   string `json:"ends_on" example:"2026-12-07"`
+}
+
+// EnrollmentOption активный шаблон, который клиент может отметить.
+// @Description Активный шаблон, который клиент может отметить.
+type EnrollmentOption struct {
+	TemplateID  string `json:"template_id" example:"6ba7b813-9dad-11d1-80b4-00c04fd430c8"`
+	TrainerID   string `json:"trainer_id" example:"6ba7b811-9dad-11d1-80b4-00c04fd430c8"`
+	TrainerName string `json:"trainer_name" example:"Лилия"`
+	Title       string `json:"title" example:"Aero Yoga"`
+	Weekday     int    `json:"weekday" example:"4"`
+	StartTime   string `json:"start_time" example:"19:00"`
+	Enrolled    bool   `json:"enrolled" example:"true"`
+}
+
+// EnrollmentInput полный набор отмеченных шаблонов. Пустой список снимает все отметки.
+// @Description Полный набор отмеченных шаблонов. Пустой список снимает все отметки.
+type EnrollmentInput struct {
+	TemplateIDs []string `json:"template_ids"`
+}
+
+// TrainerProfile текст и телефон, которые тренер правит сам. Имя здесь не меняется.
+// @Description Текст и телефон, которые тренер правит сам. Имя здесь не меняется.
+type TrainerProfile struct {
+	About string `json:"about" example:"Йога и растяжка"`
+	Phone string `json:"phone" example:"+995555000000"`
+}
+
+// TrainerStats сводка тренера за включительный диапазон дат Asia/Tbilisi.
+// clients — разные клиенты с активной явкой на его занятиях.
+// attends — проводки attend по этим занятиям.
+// @Description Сводка тренера за включительный диапазон дат Asia/Tbilisi. clients — разные клиенты с активной явкой на его занятиях. attends — проводки attend по этим занятиям.
+type TrainerStats struct {
+	From    string `json:"from" example:"2026-09-01"`
+	To      string `json:"to" example:"2026-09-30"`
+	Clients int    `json:"clients" example:"12"`
+	Attends int    `json:"attends" example:"20"`
 }

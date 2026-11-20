@@ -16,28 +16,34 @@ type querier interface {
 }
 
 const classSelect = `
-select c.id, c.title, t.id, t.name, c.starts_at, c.ends_at, c.capacity,
+select c.id, c.title, coalesce(t.id, ''), coalesce(t.name, ''), c.starts_at, c.ends_at, c.capacity,
        (select count(*) from bookings b where b.class_id = c.id and b.status = 'booked'),
-       c.price_min, c.price_max, c.status, ty.color
+       c.price_min, c.price_max, c.status, coalesce(ty.color, ''), coalesce(c.training_type_id, ''), c.template_id, c.kind
 from classes c
-join trainers t on t.id = c.trainer_id
-join training_types ty on ty.id = c.training_type_id`
+left join trainers t on t.id = c.trainer_id
+left join training_types ty on ty.id = c.training_type_id`
 
 func loadClass(ctx context.Context, q querier, id string) (domain.Class, error) {
 	var class domain.Class
-	var template sql.NullString
+	var template, trainer, typeID sql.NullString
 	var start, end string
 	err := q.QueryRowContext(ctx, `
-		select id, template_id, trainer_id, training_type_id, title, starts_at, ends_at, capacity, price_min, price_max, status
+		select id, template_id, trainer_id, training_type_id, title, starts_at, ends_at, capacity, price_min, price_max, status, kind
 		from classes where id = ?`, id).Scan(
-		&class.ID, &template, &class.TrainerID, &class.TypeID, &class.Title, &start, &end,
-		&class.Capacity, &class.PriceMin, &class.PriceMax, &class.Status,
+		&class.ID, &template, &trainer, &typeID, &class.Title, &start, &end,
+		&class.Capacity, &class.PriceMin, &class.PriceMax, &class.Status, &class.Kind,
 	)
 	if err != nil {
 		return domain.Class{}, err
 	}
 	if template.Valid {
 		class.TemplateID = template.String
+	}
+	if trainer.Valid {
+		class.TrainerID = trainer.String
+	}
+	if typeID.Valid {
+		class.TypeID = typeID.String
 	}
 	if class.StartsAt, err = parseTime(start); err != nil {
 		return domain.Class{}, err
@@ -59,9 +65,11 @@ type scanner interface{ Scan(dest ...any) error }
 func scanClass(row scanner, admin bool) (ClassView, error) {
 	var view ClassView
 	var start, end, status string
+	var template sql.NullString
 	err := row.Scan(
 		&view.ID, &view.Title, &view.Trainer.ID, &view.Trainer.Name, &start, &end,
 		&view.Capacity, &view.Booked, &view.PriceMin, &view.PriceMax, &status, &view.Color,
+		&view.TrainingTypeID, &template, &view.Kind,
 	)
 	if err != nil {
 		return ClassView{}, err
@@ -74,6 +82,10 @@ func scanClass(row scanner, admin bool) (ClassView, error) {
 	if err != nil {
 		return ClassView{}, err
 	}
+	if template.Valid && template.String != "" {
+		id := template.String
+		view.TemplateID = &id
+	}
 	view.StartsAt = domain.FormatISO(starts)
 	view.EndsAt = domain.FormatISO(ends)
 	view.FreePlaces = view.Capacity - view.Booked
@@ -83,15 +95,26 @@ func scanClass(row scanner, admin bool) (ClassView, error) {
 	if admin {
 		view.Status = &status
 	}
+	if !admin && view.Kind == domain.KindHold {
+		view.Title = "Студия занята"
+		view.PriceMin = ""
+		view.PriceMax = ""
+	}
+	if view.Color == "" && view.Kind == domain.KindHold {
+		view.Color = "#9aa3b2"
+	}
+	if view.Color == "" && view.Kind == domain.KindIndividual {
+		view.Color = "#7a5ea7"
+	}
 	return view, nil
 }
 
 func insertClass(ctx context.Context, q querier, now time.Time, class domain.Class) error {
 	_, err := q.ExecContext(ctx, `
-		insert into classes (id, template_id, trainer_id, training_type_id, title, starts_at, ends_at, capacity, price_min, price_max, status, created_at)
-		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		class.ID, nullable(class.TemplateID), class.TrainerID, class.TypeID, class.Title,
-		utc(class.StartsAt), utc(class.EndsAt), class.Capacity, class.PriceMin, class.PriceMax, class.Status, utc(now),
+		insert into classes (id, template_id, trainer_id, training_type_id, title, starts_at, ends_at, capacity, price_min, price_max, status, kind, created_at)
+		values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		class.ID, nullable(class.TemplateID), nullable(class.TrainerID), nullable(class.TypeID), class.Title,
+		utc(class.StartsAt), utc(class.EndsAt), class.Capacity, class.PriceMin, class.PriceMax, class.Status, classKind(class.Kind), utc(now),
 	)
 	return err
 }
@@ -99,10 +122,10 @@ func insertClass(ctx context.Context, q querier, now time.Time, class domain.Cla
 func updateClass(ctx context.Context, q querier, class domain.Class) error {
 	_, err := q.ExecContext(ctx, `
 		update classes
-		set template_id = ?, trainer_id = ?, training_type_id = ?, title = ?, starts_at = ?, ends_at = ?, capacity = ?, price_min = ?, price_max = ?, status = ?
+		set template_id = ?, trainer_id = ?, training_type_id = ?, title = ?, starts_at = ?, ends_at = ?, capacity = ?, price_min = ?, price_max = ?, status = ?, kind = ?
 		where id = ?`,
-		nullable(class.TemplateID), class.TrainerID, class.TypeID, class.Title,
-		utc(class.StartsAt), utc(class.EndsAt), class.Capacity, class.PriceMin, class.PriceMax, class.Status, class.ID,
+		nullable(class.TemplateID), nullable(class.TrainerID), nullable(class.TypeID), class.Title,
+		utc(class.StartsAt), utc(class.EndsAt), class.Capacity, class.PriceMin, class.PriceMax, class.Status, classKind(class.Kind), class.ID,
 	)
 	return err
 }
@@ -274,6 +297,13 @@ func outbound(ctx context.Context, q querier, notices []domain.Notice) ([]Outbou
 		out = append(out, Outbound{TelegramID: id, Text: notice.Text})
 	}
 	return out, nil
+}
+
+func classKind(kind string) string {
+	if kind == "" {
+		return domain.KindGroup
+	}
+	return kind
 }
 
 func missing(err error, code string) error {

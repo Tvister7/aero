@@ -105,3 +105,10 @@ func MoveText(title string, starts time.Time) string {
 func CancelText(title string, starts time.Time) string {
 	return fmt.Sprintf("Занятие %s %s отменено.", title, when(starts))
 }
+
+func EmptyBalanceText(booked bool, title string, starts time.Time) string {
+	if booked {
+		return fmt.Sprintf("Вы записаны на %s %s, занятия на балансе закончились.", title, when(starts))
+	}
+	return fmt.Sprintf("Вас не записали на %s %s, занятия на балансе закончились.", title, when(starts))
+}

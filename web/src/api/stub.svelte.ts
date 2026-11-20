@@ -41,10 +41,12 @@ const MESSAGES: Record<ErrorCode, string> = {
   SAME_CLASS: 'Это то же занятие',
   NO_CREDITS: 'Занятия на балансе закончились',
   ATTENDANCE_TOO_EARLY: 'Отметить явку можно за 30 минут до начала',
+  STUDIO_BUSY: 'Это время уже занято',
 }
 
 export const revision = $state({ n: 0 })
-const ui = $state({ previewAdmin: false })
+const ui = $state({ role: 'client' as 'client' | 'trainer' | 'admin', enrolled: [] as string[] })
+const STUB_TRAINER = 'tr-zhanna'
 
 function touch() {
   revision.n += 1
@@ -76,6 +78,7 @@ const db = $state<Database>({
     contact_url: 'https://t.me/aeroge',
     map_url: 'https://maps.google.com/?q=Tbilisi',
   },
+  absences: [],
 })
 
 const DEV_ID = 'client-dev'
@@ -85,7 +88,11 @@ export function roleSwitchVisible() {
 }
 
 export function setPreviewAdmin(value: boolean): void {
-  ui.previewAdmin = value
+  setPreviewRole(value ? 'admin' : 'client')
+}
+
+export function setPreviewRole(role: 'client' | 'trainer' | 'admin'): void {
+  ui.role = role
   touch()
 }
 
@@ -107,23 +114,41 @@ function activeAttendance(bookingId: string): Attendance | undefined {
   return db.attendances.find((row) => row.booking_id === bookingId && row.active)
 }
 
-function classView(row: ClassRow): ClassView {
-  const trainer = db.trainers.find((item) => item.id === row.trainer_id)
-  if (!trainer) throw new Error(row.trainer_id)
+function classKind(row: ClassRow) {
+  return row.kind ?? 'group'
+}
+
+function studioBusy(start: string, end: string, ignoreId = '') {
+  return db.classes.some(
+    (row) =>
+      row.status === 'scheduled' &&
+      row.id !== ignoreId &&
+      new Date(row.starts_at) < new Date(end) &&
+      new Date(row.ends_at) > new Date(start),
+  )
+}
+
+function classView(row: ClassRow, maskHold = false): ClassView {
+  const trainer = row.trainer_id ? db.trainers.find((item) => item.id === row.trainer_id) : undefined
+  const kind = classKind(row)
   const booked = bookedCount(row.id)
+  const type = db.types.find((item) => item.id === row.training_type_id)
   return {
     id: row.id,
-    title: row.title,
-    trainer: { id: trainer.id, name: trainer.name },
+    title: maskHold && kind === 'hold' ? 'Студия занята' : row.title,
+    trainer: { id: trainer?.id ?? '', name: trainer?.name ?? '' },
     starts_at: row.starts_at,
     ends_at: row.ends_at,
     capacity: row.capacity,
     booked,
-    free_places: row.capacity - booked,
-    price_min: row.price_min,
-    price_max: row.price_max,
-    color: db.types.find((item) => item.id === row.training_type_id)?.color ?? '',
+    free_places: Math.max(0, row.capacity - booked),
+    price_min: maskHold && kind === 'hold' ? '' : row.price_min,
+    price_max: maskHold && kind === 'hold' ? '' : row.price_max,
+    color: type?.color || (kind === 'hold' ? '#9aa3b2' : kind === 'individual' ? '#7a5ea7' : ''),
+    training_type_id: row.training_type_id,
+    template_id: row.template_id,
     status: row.status,
+    kind,
   }
 }
 
@@ -170,9 +195,9 @@ export function getStudio() {
 export function getSchedule(from: string, to: string) {
   watch()
   const data = db.classes
-    .filter((row) => row.status === 'scheduled' && inRange(row.starts_at, from, to))
+    .filter((row) => row.status === 'scheduled' && classKind(row) !== 'individual' && inRange(row.starts_at, from, to))
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
-    .map((row) => classView(row))
+    .map((row) => classView(row, true))
   return { ok: true as const, data, pending: false }
 }
 
@@ -188,8 +213,8 @@ export function getAdminSchedule(from: string, to: string) {
 export function getClass(id: string) {
   watch()
   const row = db.classes.find((item) => item.id === id && item.status === 'scheduled')
-  if (!row) return fail('CLASS_NOT_FOUND')
-  return { ok: true as const, data: classView(row) }
+  if (!row || classKind(row) === 'individual') return fail('CLASS_NOT_FOUND')
+  return { ok: true as const, data: classView(row, true) }
 }
 
 export function getAdminClass(id: string) {
@@ -201,7 +226,7 @@ export function getAdminClass(id: string) {
 
 export function bookClass(id: string, body: { name?: string; phone?: string }) {
   const row = db.classes.find((item) => item.id === id && item.status === 'scheduled')
-  if (!row) return fail('CLASS_NOT_FOUND')
+  if (!row || classKind(row) !== 'group') return fail('CLASS_NOT_FOUND')
   if (new Date(row.starts_at) <= new Date()) return fail('CLASS_STARTED')
   const client = devClient()
   const name = body.name?.trim() || client.name
@@ -236,7 +261,8 @@ export function getMe() {
       username: client.username,
       balance: balanceOf(client.id),
       policy: client.policy,
-      is_admin: roleSwitchVisible() ? ui.previewAdmin : false,
+      is_admin: ui.role === 'admin',
+      is_trainer: ui.role === 'trainer',
       visited: visitedOf(client.id),
     },
   }
@@ -274,6 +300,21 @@ export function myBookings() {
   return { ok: true as const, data }
 }
 
+export function myVisits() {
+  watch()
+  const data = db.attendances
+    .filter((row) => row.active)
+    .flatMap((row) => {
+      const booking = db.bookings.find((item) => item.id === row.booking_id && item.client_id === DEV_ID)
+      const classRow = booking ? db.classes.find((item) => item.id === booking.class_id) : undefined
+      if (!classRow) return []
+      const trainer = db.trainers.find((item) => item.id === classRow.trainer_id)
+      return [{ title: classRow.title, trainer_name: trainer?.name ?? '', starts_at: classRow.starts_at, payment: row.payment }]
+    })
+    .sort((a, b) => b.starts_at.localeCompare(a.starts_at) || b.title.localeCompare(a.title))
+  return { ok: true as const, data, pending: false as const }
+}
+
 function ownBooking(id: string) {
   return db.bookings.find((row) => row.id === id && row.client_id === DEV_ID && row.status === 'booked')
 }
@@ -285,6 +326,7 @@ export function cancelBooking(id: string) {
   if (!row || hoursUntil(row.starts_at) <= 6) return fail('CUTOFF_EXCEEDED')
   booking.status = 'cancelled'
   booking.reminder_state = 'cancelled'
+  if (classKind(row) === 'individual') row.status = 'cancelled'
   addEvent(booking.id, 'cancelled', booking.class_id, null)
   touch()
   return { ok: true as const, booking_id: booking.id }
@@ -296,7 +338,9 @@ export function rescheduleBooking(id: string, classId: string) {
   const current = db.classes.find((item) => item.id === booking.class_id)
   if (!current || hoursUntil(current.starts_at) <= 6) return fail('CUTOFF_EXCEEDED')
   if (booking.class_id === classId) return fail('SAME_CLASS')
+  if (current.template_id || classKind(current) !== 'group') return fail('VALIDATION')
   const next = db.classes.find((item) => item.id === classId && item.status === 'scheduled' && new Date(item.starts_at) > new Date())
+  if (next && next.training_type_id !== current.training_type_id) return fail('NEW_CLASS_NOT_FOUND')
   if (!next) return fail('NEW_CLASS_NOT_FOUND')
   if (bookedCount(next.id) >= next.capacity) return fail('NO_PLACES')
   if (db.bookings.some((item) => item.class_id === next.id && item.client_id === DEV_ID && item.status === 'booked')) {
@@ -311,31 +355,229 @@ export function rescheduleBooking(id: string, classId: string) {
   return { ok: true as const, booking_id: booking.id, class: classView(next) }
 }
 
+function trainerCard(row: (typeof db.trainers)[number]) {
+  return {
+    id: row.id,
+    name: row.name,
+    active: row.active,
+    about: row.about ?? '',
+    phone: row.phone ?? '',
+    telegram_user_id: row.telegram_user_id,
+  }
+}
+
 export function listTrainers() {
   watch()
-  return { ok: true as const, data: db.trainers.map((row) => ({ id: row.id, name: row.name, active: row.active })) }
+  return { ok: true as const, data: db.trainers.map(trainerCard) }
 }
 
 export function createTrainer(name: string) {
   const trimmed = name?.trim()
   if (!trimmed || db.trainers.some((row) => row.name === trimmed)) return fail('VALIDATION')
-  const row = { id: uid('trainer'), name: trimmed, active: true, telegram_user_id: null }
+  const row = { id: uid('trainer'), name: trimmed, active: true, about: '', phone: '', telegram_user_id: null }
   db.trainers.push(row)
   touch()
-  return { ok: true as const, data: { id: row.id, name: row.name, active: row.active } }
+  return { ok: true as const, data: trainerCard(row) }
 }
 
-export function patchTrainer(id: string, body: { name?: string; active?: boolean }) {
+export function patchTrainer(
+  id: string,
+  body: { name?: string; active?: boolean; about?: string; phone?: string; telegram_user_id?: string },
+) {
   const row = db.trainers.find((item) => item.id === id)
   if (!row) return fail('VALIDATION')
-  if (body.name?.trim()) {
+  if (body.name !== undefined) {
     const trimmed = body.name.trim()
-    if (db.trainers.some((item) => item.name === trimmed && item.id !== id)) return fail('VALIDATION')
+    if (!trimmed || db.trainers.some((item) => item.name === trimmed && item.id !== id)) return fail('VALIDATION')
     row.name = trimmed
   }
   if (typeof body.active === 'boolean') row.active = body.active
+  if (body.about !== undefined) row.about = body.about.trim()
+  if (body.phone !== undefined) row.phone = body.phone.trim()
+  if (body.telegram_user_id !== undefined) {
+    const telegram = body.telegram_user_id.trim()
+    if (telegram && !db.clients.some((item) => item.telegram_id === telegram)) return fail('VALIDATION')
+    if (telegram && db.trainers.some((item) => item.telegram_user_id === telegram && item.id !== id)) return fail('VALIDATION')
+    row.telegram_user_id = telegram || null
+  }
   touch()
-  return { ok: true as const, data: { id: row.id, name: row.name, active: row.active } }
+  return { ok: true as const, data: trainerCard(row) }
+}
+
+function trainerDetail(id: string) {
+  const row = db.trainers.find((item) => item.id === id)
+  if (!row) return null
+  return {
+    ...trainerCard(row),
+    absences: db.absences.filter((item) => item.trainer_id === id).map((item) => ({ id: item.id, starts_on: item.starts_on, ends_on: item.ends_on })),
+  }
+}
+
+function cancelFuture(trainerId: string) {
+  for (const row of db.classes) {
+    if (row.trainer_id !== trainerId || row.status !== 'scheduled' || new Date(row.starts_at) <= new Date()) continue
+    row.status = 'cancelled'
+    for (const booking of db.bookings) {
+      if (booking.class_id === row.id && booking.status === 'booked') booking.status = 'cancelled'
+    }
+  }
+}
+
+export function getTrainer(id: string) {
+  watch()
+  const data = trainerDetail(id)
+  if (!data) return fail('VALIDATION')
+  return { ok: true as const, data, pending: false }
+}
+
+export function addAbsence(id: string, startsOn: string, endsOn: string) {
+  if (!db.trainers.some((item) => item.id === id) || !startsOn || !endsOn || endsOn < startsOn) return fail('VALIDATION')
+  db.absences.push({ id: uid('absence'), trainer_id: id, starts_on: startsOn, ends_on: endsOn })
+  for (const row of db.classes) {
+    if (row.trainer_id !== id || row.status !== 'scheduled') continue
+    const day = row.starts_at.slice(0, 10)
+    if (day >= startsOn && day <= endsOn) {
+      row.status = 'cancelled'
+      for (const booking of db.bookings) {
+        if (booking.class_id === row.id && booking.status === 'booked') booking.status = 'cancelled'
+      }
+    }
+  }
+  touch()
+  const data = trainerDetail(id)
+  if (!data) return fail('VALIDATION')
+  return { ok: true as const, data }
+}
+
+export function deleteAbsence(id: string, absenceId: string) {
+  const index = db.absences.findIndex((item) => item.id === absenceId && item.trainer_id === id)
+  if (index < 0) return fail('VALIDATION')
+  db.absences.splice(index, 1)
+  touch()
+  const data = trainerDetail(id)
+  if (!data) return fail('VALIDATION')
+  return { ok: true as const, data }
+}
+
+export function cancelTrainerClasses(id: string) {
+  if (!db.trainers.some((item) => item.id === id)) return fail('VALIDATION')
+  cancelFuture(id)
+  touch()
+  return { ok: true as const }
+}
+
+export function deleteTrainer(id: string) {
+  const row = db.trainers.find((item) => item.id === id)
+  if (!row) return fail('VALIDATION')
+  cancelFuture(id)
+  for (const template of db.templates) {
+    if (template.trainer_id === id) template.active = false
+  }
+  if (db.classes.some((item) => item.trainer_id === id)) {
+    row.active = false
+    row.telegram_user_id = null
+  } else {
+    db.templates.splice(0, db.templates.length, ...db.templates.filter((item) => item.trainer_id !== id))
+    db.absences.splice(0, db.absences.length, ...db.absences.filter((item) => item.trainer_id !== id))
+    db.trainers.splice(db.trainers.indexOf(row), 1)
+  }
+  touch()
+  return { ok: true as const }
+}
+
+function enrollmentRows() {
+  return db.templates
+    .filter((template) => template.active && db.trainers.some((trainer) => trainer.id === template.trainer_id && trainer.active))
+    .map((template) => ({
+      template_id: template.id,
+      trainer_id: template.trainer_id,
+      trainer_name: db.trainers.find((trainer) => trainer.id === template.trainer_id)?.name ?? '',
+      title: template.title,
+      weekday: template.weekday,
+      start_time: template.start_time,
+      enrolled: ui.enrolled.includes(template.id),
+    }))
+    .sort((a, b) => a.trainer_name.localeCompare(b.trainer_name) || a.weekday - b.weekday || a.start_time.localeCompare(b.start_time))
+}
+
+export function listEnrollments() {
+  watch()
+  return { ok: true as const, data: enrollmentRows(), pending: false }
+}
+
+export function putEnrollments(templateIds: string[]) {
+  const allowed = new Set(enrollmentRows().map((item) => item.template_id))
+  if (templateIds.some((id) => !allowed.has(id))) return fail('VALIDATION')
+  ui.enrolled = [...new Set(templateIds)]
+  touch()
+  return { ok: true as const, data: enrollmentRows() }
+}
+
+export function getTrainerProfile() {
+  watch()
+  const row = db.trainers.find((item) => item.id === STUB_TRAINER)
+  if (!row) return { ok: true as const, pending: false, data: { id: '', name: '', active: true, about: '', phone: '', telegram_user_id: null } }
+  return { ok: true as const, pending: false, data: trainerCard(row) }
+}
+
+export function patchTrainerProfile(body: { about: string; phone: string }) {
+  const row = db.trainers.find((item) => item.id === STUB_TRAINER)
+  if (!row) return fail('FORBIDDEN')
+  row.about = body.about.trim()
+  row.phone = body.phone.trim()
+  touch()
+  return { ok: true as const, data: trainerCard(row) }
+}
+
+export function getTrainerSchedule(from: string, to: string) {
+  watch()
+  const data = db.classes
+    .filter((row) => (row.trainer_id === STUB_TRAINER || (classKind(row) === 'hold' && row.status === 'scheduled')) && inRange(row.starts_at, from, to))
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+    .map((row) => classView(row))
+  return { ok: true as const, data, pending: false }
+}
+
+export function listTrainerTypes() {
+  return listTypes()
+}
+
+export function createTrainerClass(body: { training_type_id?: string; starts_at?: string; capacity?: number }) {
+  return createClass({ ...body, trainer_id: STUB_TRAINER })
+}
+
+export function cancelTrainerClass(id: string) {
+  const row = db.classes.find((item) => item.id === id && item.trainer_id === STUB_TRAINER)
+  if (!row) return fail('CLASS_NOT_FOUND')
+  if (new Date(row.starts_at) <= new Date()) return fail('CLASS_STARTED')
+  return patchClass(id, { status: 'cancelled' })
+}
+
+export function getTrainerRoster(id: string) {
+  const row = db.classes.find((item) => item.id === id && item.trainer_id === STUB_TRAINER && item.status === 'scheduled')
+  if (!row) return fail('CLASS_NOT_FOUND')
+  return getRoster(id)
+}
+
+export function setTrainerAttendance(bookingId: string, arrived: boolean) {
+  const booking = db.bookings.find((item) => item.id === bookingId)
+  const row = booking && db.classes.find((item) => item.id === booking.class_id)
+  if (!row || row.trainer_id !== STUB_TRAINER) return fail('BOOKING_NOT_FOUND')
+  return setAttendance(bookingId, arrived)
+}
+
+export function trainerStats(from: string, to: string) {
+  watch()
+  const classIds = new Set(db.classes.filter((row) => row.trainer_id === STUB_TRAINER && inRange(row.starts_at, from, to)).map((row) => row.id))
+  const bookingIds = db.bookings.filter((row) => classIds.has(row.class_id))
+  const clients = new Set(
+    db.attendances
+      .filter((row) => row.active && bookingIds.some((booking) => booking.id === row.booking_id))
+      .map((row) => bookingIds.find((booking) => booking.id === row.booking_id)?.client_id)
+      .filter((id): id is string => Boolean(id)),
+  )
+  const attends = db.ledger.filter((row) => row.reason === 'attend' && row.booking_id && bookingIds.some((booking) => booking.id === row.booking_id)).length
+  return { ok: true as const, data: { from, to, clients: clients.size, attends } }
 }
 
 export function listTypes() {
@@ -464,6 +706,7 @@ export function generateWeek(weekStart?: string) {
     const ends = toTbilisiIso(new Date(new Date(starts).getTime() + type.duration_minutes * 60000))
     const existing = db.classes.find((item) => item.trainer_id === template.trainer_id && item.starts_at === starts)
     if (!existing) {
+      if (studioBusy(starts, ends)) continue
       db.classes.push({
         id: uid('class'),
         template_id: template.id,
@@ -478,7 +721,7 @@ export function generateWeek(weekStart?: string) {
         status: 'scheduled' as const,
       })
       created += 1
-    } else if (existing.status === 'scheduled') {
+    } else if (existing.status === 'scheduled' && classKind(existing) === 'group' && !studioBusy(starts, ends, existing.id)) {
       existing.template_id = template.id
       existing.title = template.title
       existing.ends_at = ends
@@ -499,6 +742,8 @@ export function createClass(body: { trainer_id?: string; training_type_id?: stri
   if (!trainer || !type || !body.starts_at) return fail('VALIDATION')
   if (db.classes.some((item) => item.trainer_id === trainer.id && item.starts_at === body.starts_at)) return fail('VALIDATION')
   const capacity = Number(body.capacity || type.capacity)
+  const ends = toTbilisiIso(new Date(new Date(body.starts_at).getTime() + type.duration_minutes * 60000))
+  if (studioBusy(body.starts_at, ends)) return fail('STUDIO_BUSY')
   const row = {
     id: uid('class'),
     template_id: null,
@@ -506,7 +751,7 @@ export function createClass(body: { trainer_id?: string; training_type_id?: stri
     training_type_id: type.id,
     title: type.title,
     starts_at: body.starts_at,
-    ends_at: toTbilisiIso(new Date(new Date(body.starts_at).getTime() + type.duration_minutes * 60000)),
+    ends_at: ends,
     capacity,
     price_min: type.price_min,
     price_max: type.price_max,
@@ -515,6 +760,83 @@ export function createClass(body: { trainer_id?: string; training_type_id?: stri
   db.classes.push(row)
   touch()
   return { ok: true as const, data: classView(row) }
+}
+
+function spanEnd(starts: string, minutes: number) {
+  return toTbilisiIso(new Date(new Date(starts).getTime() + minutes * 60000))
+}
+
+export function createHold(body: { title: string; starts_at: string; duration_minutes?: number }) {
+  const title = body.title.trim()
+  const minutes = body.duration_minutes ?? 60
+  if (!title || !body.starts_at || minutes < 1 || minutes > 600) return fail('VALIDATION')
+  const ends = spanEnd(body.starts_at, minutes)
+  if (studioBusy(body.starts_at, ends)) return fail('STUDIO_BUSY')
+  const row: ClassRow = {
+    id: uid('class'),
+    template_id: null,
+    trainer_id: '',
+    training_type_id: '',
+    title,
+    starts_at: body.starts_at,
+    ends_at: ends,
+    capacity: 0,
+    price_min: '',
+    price_max: '',
+    status: 'scheduled',
+    kind: 'hold',
+  }
+  db.classes.push(row)
+  touch()
+  return { ok: true as const, data: classView(row) }
+}
+
+export function createIndividual(body: { trainer_id: string; client_id: string; starts_at: string; duration_minutes?: number }) {
+  const trainer = db.trainers.find((item) => item.id === body.trainer_id)
+  const client = db.clients.find((item) => item.id === body.client_id)
+  const minutes = body.duration_minutes ?? 60
+  if (!trainer || !client || !body.starts_at || minutes < 1 || minutes > 600) return fail('VALIDATION')
+  const ends = spanEnd(body.starts_at, minutes)
+  if (studioBusy(body.starts_at, ends)) return fail('STUDIO_BUSY')
+  const row: ClassRow = {
+    id: uid('class'),
+    template_id: null,
+    trainer_id: trainer.id,
+    training_type_id: '',
+    title: 'Индивидуальное',
+    starts_at: body.starts_at,
+    ends_at: ends,
+    capacity: 1,
+    price_min: '',
+    price_max: '',
+    status: 'scheduled',
+    kind: 'individual',
+  }
+  db.classes.push(row)
+  placeBooking(row, client)
+  touch()
+  return { ok: true as const, data: classView(row) }
+}
+
+export function searchTrainerClients(query: string) {
+  watch()
+  const needle = query.trim().toLowerCase()
+  if (!needle) return { ok: true as const, data: [] as { id: string; name: string }[], pending: false as const }
+  const data = db.clients
+    .filter((client) => client.name.toLowerCase().includes(needle))
+    .slice(0, 20)
+    .map((client) => ({ id: client.id, name: client.name }))
+  return { ok: true as const, data, pending: false as const }
+}
+
+export function createTrainerIndividual(body: { client_id: string; starts_at: string; duration_minutes?: number }) {
+  return createIndividual({ ...body, trainer_id: STUB_TRAINER })
+}
+
+export function moveTrainerClass(id: string, startsAt: string) {
+  const row = db.classes.find((item) => item.id === id && item.trainer_id === STUB_TRAINER && classKind(item) === 'individual')
+  if (!row) return fail('CLASS_NOT_FOUND')
+  return patchClass(id, { starts_at: startsAt })
 }
 
 export function patchClass(id: string, body: { status?: 'cancelled'; starts_at?: string; trainer_id?: string; capacity?: number; title?: string }) {
@@ -534,12 +856,19 @@ export function patchClass(id: string, body: { status?: 'cancelled'; starts_at?:
   }
   const booked = bookedCount(row.id)
   if (body.capacity != null && Number(body.capacity) < booked) return fail('VALIDATION')
+  if (classKind(row) === 'hold' && (body.capacity != null || body.trainer_id)) return fail('VALIDATION')
+  if (classKind(row) === 'individual' && body.capacity != null && Number(body.capacity) !== 1) return fail('VALIDATION')
   const previousStart = row.starts_at
+  let nextStart = row.starts_at
+  let nextEnd = row.ends_at
   if (body.starts_at) {
     const duration = new Date(row.ends_at).getTime() - new Date(row.starts_at).getTime()
-    row.starts_at = body.starts_at
-    row.ends_at = toTbilisiIso(new Date(new Date(body.starts_at).getTime() + duration))
+    nextStart = body.starts_at
+    nextEnd = toTbilisiIso(new Date(new Date(body.starts_at).getTime() + duration))
   }
+  if (studioBusy(nextStart, nextEnd, row.id)) return fail('STUDIO_BUSY')
+  row.starts_at = nextStart
+  row.ends_at = nextEnd
   if (body.trainer_id) row.trainer_id = body.trainer_id
   if (body.capacity != null) row.capacity = Number(body.capacity)
   if (body.title?.trim()) row.title = body.title.trim()
@@ -767,7 +1096,7 @@ export function todayRoster(): RosterData[] {
   watch()
   const today = todayKey()
   return db.classes
-    .filter((row) => row.status === 'scheduled' && dateKeyOfIso(row.starts_at) === today)
+    .filter((row) => row.status === 'scheduled' && classKind(row) !== 'hold' && dateKeyOfIso(row.starts_at) === today)
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
     .flatMap((row) => {
       const roster = getRoster(row.id)
@@ -792,7 +1121,7 @@ function seed() {
     ['tr-tatiana', 'Татьяна'],
     ['tr-taya', 'Тая'],
   ]
-  for (const [id, name] of trainers) db.trainers.push({ id, name, active: true, telegram_user_id: null })
+  for (const [id, name] of trainers) db.trainers.push({ id, name, active: true, about: '', phone: '', telegram_user_id: null })
 
   const types: Array<[string, string, number, number, number, number, string]> = [
     ['ty-kids', 'K-POP KIDS (Dance)', 60, 10, 30, 30, '#3a7ca5'],

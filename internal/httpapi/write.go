@@ -24,6 +24,7 @@ var messages = map[string]string{
 	domain.SameClass:          "Это то же занятие",
 	domain.NoCredits:          "Занятия на балансе закончились",
 	domain.AttendanceTooEarly: "Отметить явку можно за 30 минут до начала",
+	domain.StudioBusy:         "Это время уже занято",
 }
 
 var statuses = map[string]int{
@@ -40,6 +41,7 @@ var statuses = map[string]int{
 	domain.SameClass:          http.StatusConflict,
 	domain.NoCredits:          http.StatusConflict,
 	domain.AttendanceTooEarly: http.StatusConflict,
+	domain.StudioBusy:         http.StatusConflict,
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

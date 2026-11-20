@@ -141,22 +141,20 @@
     {#if items.length > 0 || day === openedDay}
     <h2 class="day" id="day-{day}">{formatDay(day)}</h2>
     {#each items as item (item.id)}
-      <a
-        class="row accent"
-        style:border-left-color={shownColor(item.color, item.title)}
-        href={admin ? `#/admin/class/${item.id}` : `#/class/${item.id}`}
-        data-testid={item.id === bookableId ? 'bookable' : item.free_places === 0 && item.status !== 'cancelled' ? 'class-full' : undefined}
-      >
-        <strong>{item.title}</strong>
-        <span class="meta">{formatWhen(item.starts_at)} · {item.trainer.name}</span>
-        <span class="meta">свободно {item.free_places} из {item.capacity}</span>
-        {#if priceLabel(item.price_min, item.price_max)}
-          <span class="price">{priceLabel(item.price_min, item.price_max)}</span>
-        {/if}
-        {#if item.status === 'cancelled'}
-          <span class="tag">отменено</span>
-        {/if}
-      </a>
+      {#if !admin && item.kind === 'hold'}
+        <article class="row accent" style:border-left-color={shownColor(item.color, item.title)}>
+          {@render slot(item)}
+        </article>
+      {:else}
+        <a
+          class="row accent"
+          style:border-left-color={shownColor(item.color, item.title)}
+          href={admin ? `#/admin/class/${item.id}` : `#/class/${item.id}`}
+          data-testid={item.id === bookableId ? 'bookable' : item.free_places === 0 && item.status !== 'cancelled' ? 'class-full' : undefined}
+        >
+          {@render slot(item)}
+        </a>
+      {/if}
     {:else}
       <p class="card muted">В этот день занятий нет.</p>
     {/each}
@@ -195,3 +193,17 @@
   {/if}
 {/if}
 </div>
+
+{#snippet slot(item: (typeof result.data)[number])}
+  <strong>{item.title}</strong>
+  <span class="meta">{formatWhen(item.starts_at)}{#if item.trainer.name} · {item.trainer.name}{/if}</span>
+  {#if item.kind !== 'hold'}
+    <span class="meta">свободно {item.free_places} из {item.capacity}</span>
+  {/if}
+  {#if priceLabel(item.price_min, item.price_max)}
+    <span class="price">{priceLabel(item.price_min, item.price_max)}</span>
+  {/if}
+  {#if item.status === 'cancelled'}
+    <span class="tag">отменено</span>
+  {/if}
+{/snippet}

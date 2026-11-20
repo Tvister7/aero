@@ -25,10 +25,23 @@ func (d *DB) Me(ctx context.Context, now time.Time, user User) (Me, error) {
 		if err != nil {
 			return err
 		}
+		trainer, err := isActiveTrainer(ctx, tx, user.TelegramID)
+		if err != nil {
+			return err
+		}
 		me = meFrom(client, balance, visited)
+		me.IsTrainer = trainer
 		return nil
 	})
 	return me, err
+}
+
+func isActiveTrainer(ctx context.Context, q querier, telegramID int64) (bool, error) {
+	var found int
+	err := q.QueryRowContext(ctx, `
+		select exists(select 1 from trainers where telegram_user_id = ? and active = 1)`,
+		strconv.FormatInt(telegramID, 10)).Scan(&found)
+	return found == 1, err
 }
 
 func (d *DB) PatchMe(ctx context.Context, now time.Time, user User, name, phone string) (Me, error) {
@@ -50,7 +63,12 @@ func (d *DB) PatchMe(ctx context.Context, now time.Time, user User, name, phone 
 		if err != nil {
 			return err
 		}
+		trainer, err := isActiveTrainer(ctx, tx, user.TelegramID)
+		if err != nil {
+			return err
+		}
 		me = meFrom(client, balance, visited)
+		me.IsTrainer = trainer
 		return nil
 	})
 	return me, err

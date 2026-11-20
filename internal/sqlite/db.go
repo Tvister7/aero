@@ -17,9 +17,10 @@ import (
 )
 
 type DB struct {
-	sql  *sql.DB
-	path string
-	ids  func() string
+	sql       *sql.DB
+	path      string
+	ids       func() string
+	Exclusive bool
 }
 
 func Open(path string) (*DB, error) {
@@ -38,7 +39,7 @@ func Open(path string) (*DB, error) {
 	}
 	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
-	db := &DB{sql: sqlDB, path: path, ids: newID}
+	db := &DB{sql: sqlDB, path: path, ids: newID, Exclusive: true}
 	if err := db.migrate(context.Background()); err != nil {
 		sqlDB.Close()
 		return nil, err
@@ -69,7 +70,15 @@ func (d *DB) migrate(ctx context.Context) error {
 			return fmt.Errorf("schema: %w", err)
 		}
 	}
-	return d.write(ctx, func(tx *sql.Tx) error { return ensureTypeColors(ctx, tx) })
+	if err := d.ensureClassKind(ctx); err != nil {
+		return err
+	}
+	return d.write(ctx, func(tx *sql.Tx) error {
+		if err := ensureTrainerColumns(ctx, tx); err != nil {
+			return err
+		}
+		return ensureTypeColors(ctx, tx)
+	})
 }
 
 func (d *DB) write(ctx context.Context, fn func(*sql.Tx) error) error {
