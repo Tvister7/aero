@@ -1,14 +1,17 @@
 <script lang="ts">
   import { cancelBooking, getSchedule, myBookings, rescheduleBooking } from '../api'
+  import Notice from '../lib/Notice.svelte'
   import { addDays, formatWhen, hoursUntil, todayKey } from '../lib/time'
 
   let list = $derived(myBookings())
-  let options = $derived(getSchedule(todayKey(), addDays(todayKey(), 21)).data)
+  let schedule = $derived(getSchedule(todayKey(), addDays(todayKey(), 21)))
+  let options = $derived(schedule.status === 'ready' ? schedule.data : [])
   let error = $state('')
   let moving = $state('')
   let target = $state('')
 
   async function cancel(id: string) {
+    if (!confirm('Снять запись? Сообщение никому не уйдёт. Баланс не изменится.')) return
     const response = await cancelBooking(id)
     error = response.ok ? '' : response.message
   }
@@ -21,7 +24,12 @@
 </script>
 
 <h2 class="day">Мои записи</h2>
-{#if error}<p class="card error" data-testid="form-error">{error}</p>{/if}
+{#if list.status === 'pending'}
+  <Notice kind="pending" />
+{:else if list.status === 'error'}
+  <Notice kind="error" message={list.message} reload={list.reload} />
+{:else}
+{#if error}<Notice kind="error" message={error} testid="form-error" />{/if}
 {#if list.data.length === 0}
   <p class="card muted">Будущих записей нет.</p>
 {/if}
@@ -58,3 +66,4 @@
     {/if}
   </article>
 {/each}
+{/if}

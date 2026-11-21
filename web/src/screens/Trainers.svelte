@@ -1,8 +1,10 @@
 <script lang="ts">
   import { createTrainer, listTrainers, patchTrainer } from '../api'
   import { focusField } from '../lib/focus'
+  import Notice from '../lib/Notice.svelte'
 
-  let trainers = $derived(listTrainers().data)
+  let loaded = $derived(listTrainers())
+  let trainers = $derived(loaded.status === 'ready' ? loaded.data : [])
   let name = $state('')
   let error = $state('')
 
@@ -15,6 +17,11 @@
 </script>
 
 <h2 class="day">Тренеры</h2>
+{#if loaded.status === 'pending'}
+  <Notice kind="pending" />
+{:else if loaded.status === 'error'}
+  <Notice kind="error" message={loaded.message} reload={loaded.reload} />
+{:else}
 <button class="ghost add" type="button" data-testid="add-trainer" onclick={() => focusField('trainer-name')}>Добавить</button>
 {#each trainers as trainer (trainer.id)}
   <article class="card">
@@ -30,5 +37,6 @@
   <label for="trainer-name">Имя</label>
   <input id="trainer-name" bind:value={name} />
   <button class="primary" type="submit">Добавить</button>
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error}<Notice kind="error" message={error} />{/if}
 </form>
+{/if}

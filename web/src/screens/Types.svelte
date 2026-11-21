@@ -1,10 +1,12 @@
 <script lang="ts">
   import { createType, listTypes } from '../api'
+  import Notice from '../lib/Notice.svelte'
   import { shownColor } from '../lib/color'
   import { focusField } from '../lib/focus'
   import { priceLabel } from '../lib/text'
 
-  let types = $derived(listTypes().data)
+  let loaded = $derived(listTypes())
+  let types = $derived(loaded.status === 'ready' ? loaded.data : [])
   let title = $state('')
   let duration = $state('60')
   let capacity = $state('8')
@@ -27,6 +29,11 @@
 </script>
 
 <h2 class="day">Типы занятий</h2>
+{#if loaded.status === 'pending'}
+  <Notice kind="pending" />
+{:else if loaded.status === 'error'}
+  <Notice kind="error" message={loaded.message} reload={loaded.reload} />
+{:else}
 <button class="ghost add" type="button" onclick={() => focusField('type-title')}>Добавить</button>
 <p class="card muted">Стоимость здесь только подпись на карточке. Учёт идёт в занятиях.</p>
 {#each types as type (type.id)}
@@ -49,5 +56,6 @@
   <label for="type-max">Подпись до</label>
   <input id="type-max" bind:value={priceMax} />
   <button class="primary" type="submit">Добавить</button>
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error}<Notice kind="error" message={error} />{/if}
 </form>
+{/if}

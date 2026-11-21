@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getStudio, putStudio } from '../api'
+  import Notice from '../lib/Notice.svelte'
 
   let studio = $derived(getStudio())
   let address = $state('')
@@ -22,7 +23,7 @@
   }
 
   $effect(() => {
-    if (filled || studio.pending) return
+    if (filled || studio.status !== 'ready') return
     address = studio.data.address
     phone = studio.data.phone
     instagram = studio.data.instagram_url
@@ -50,6 +51,11 @@
   }
 </script>
 
+{#if studio.status === 'pending'}
+  <Notice kind="pending" />
+{:else if studio.status === 'error'}
+  <Notice kind="error" message={studio.message} reload={studio.reload} />
+{:else}
 <form class="card" onsubmit={save}>
   <label for="address">Адрес</label>
   <input id="address" bind:value={address} />
@@ -66,5 +72,6 @@
   <label for="pricing">Прайс, JSON</label>
   <textarea id="pricing" rows="10" bind:value={pricing}></textarea>
   <button class="primary" type="submit">Сохранить</button>
-  {#if notice}<p class:error={failed}>{notice}</p>{/if}
+  {#if notice}<Notice kind={failed ? 'error' : 'ok'} message={notice} />{/if}
 </form>
+{/if}

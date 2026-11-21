@@ -1,10 +1,11 @@
 :root {
   --blue: #3a7ca5;
   --peach: #ffe7d6;
-  --mist: #eee7e7;
+  --mist: #f2e6df;
   --ice: #d7f9ff;
   --ink: #0e1c36;
   --card: #fff;
+  --peach-deep: #e8c4b0;
   --danger: #8d2f2f;
   --line: #e2d9d9;
   color: var(--ink);
@@ -37,7 +38,7 @@ a { color: var(--blue); }
   min-height: var(--app-h, 100dvh);
   margin: 0 auto;
   background: var(--mist);
-  padding-bottom: 108px;
+  padding-bottom: calc(108px + env(safe-area-inset-bottom));
   overflow-x: hidden;
 }
 
@@ -46,10 +47,10 @@ a { color: var(--blue); }
   top: 0;
   z-index: 2;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 20px 16px 18px;
   background: var(--ink);
   color: var(--ice);
 }
@@ -72,7 +73,9 @@ a.page-back {
   display: flex;
   padding: 2px;
   border-radius: 999px;
-  background: rgb(255 255 255 / 12%);
+  align-self: flex-end;
+  max-width: 100%;
+  background: color-mix(in srgb, var(--card) 12%, transparent);
 }
 
 .switch button {
@@ -107,10 +110,8 @@ a.page-back {
 .row strong, .card h2, .card h3 { display: block; }
 
 .row.past {
-  opacity: 0.55;
-  filter: blur(1.2px);
+  opacity: 0.72;
   pointer-events: none;
-  user-select: none;
 }
 
 .guide { white-space: pre-wrap; }
@@ -120,7 +121,7 @@ a.page-back {
   text-decoration: none;
 }
 
-.meta, .muted { color: #4d5d73; font-size: 14px; }
+.meta, .muted { color: var(--ink); font-size: 14px; }
 .meta, .price { display: block; }
 
 .price { color: var(--blue); font-size: 14px; }
@@ -138,7 +139,8 @@ a.page-back {
   display: flex;
   width: min(480px, 100%);
   transform: translateX(-50%);
-  background: white;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--card);
   border-top: 1px solid var(--line);
 }
 
@@ -160,7 +162,7 @@ input, select, textarea {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: white;
+  background-color: var(--card);
 }
 
 select {
@@ -182,9 +184,9 @@ button.primary, button.ghost, button.danger {
 
 button:disabled { opacity: 0.45; }
 
-button.primary { background: var(--blue); color: white; }
+button.primary { background: var(--blue); color: var(--card); }
 button.ghost { background: var(--peach); color: var(--ink); }
-button.ghost.off { background: #e8c4b0; }
+button.ghost.off { background: var(--peach-deep); }
 button.danger { background: transparent; color: var(--danger); }
 
 .actions { display: flex; gap: 8px; }
@@ -195,6 +197,20 @@ button.danger { background: transparent; color: var(--danger); }
   color: var(--danger);
   font-size: 14px;
 }
+
+.notice {
+  margin: 12px 24px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--ink);
+}
+
+.notice p { margin: 0; }
+
+.notice.error { color: var(--danger); }
+
+.card .notice { margin: 12px 0 0; }
 
 .balance {
   margin: 0;
@@ -208,7 +224,7 @@ button.danger { background: transparent; color: var(--danger); }
   margin: 0 24px 8px;
   padding: 14px 16px;
   border-radius: 16px;
-  background: white;
+  background: var(--card);
   color: inherit;
   text-decoration: none;
 }
@@ -254,7 +270,7 @@ button.danger { background: transparent; color: var(--danger); }
   overflow: hidden;
   border: 1px solid var(--ink);
   border-radius: 12px;
-  background: white;
+  background: var(--card);
 }
 
 .weekbar button {
@@ -269,14 +285,14 @@ button.danger { background: transparent; color: var(--danger); }
   flex: 1;
   border: 0;
   border-radius: 0;
-  background: white;
+  background: var(--card);
 }
 
 .weekbar .tabs button + button { border-left: 1px solid var(--ink); }
 
 .weekbar .tabs button[aria-pressed='true'] {
   background: var(--blue);
-  color: white;
+  color: var(--card);
 }
 
 button.add {
@@ -289,9 +305,8 @@ form.composer {
   margin-top: 32px;
   padding-top: 18px;
   border: 1px solid var(--ink);
-  background:
-    linear-gradient(var(--peach), var(--peach)) top / 100% 6px no-repeat,
-    white;
+  border-top: 6px solid var(--peach);
+  background: var(--card);
 }
 
 form.composer h3 { margin: 0; }
@@ -307,7 +322,7 @@ form.composer h3 { margin: 0; }
 .cell .num {
   margin: 0;
   font-size: 11px;
-  color: #4d5d73;
+  color: var(--ink);
 }
 
 button.cell {
@@ -317,7 +332,7 @@ button.cell {
   padding: 6px 4px;
   border: 0;
   border-radius: 10px;
-  background: white;
+  background: var(--card);
   text-align: left;
   cursor: pointer;
 }

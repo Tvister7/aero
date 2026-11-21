@@ -1,10 +1,12 @@
 <script lang="ts">
   import { addAbsence, cancelTrainerClasses, deleteAbsence, deleteTrainer, getTrainer, listClients, patchTrainer } from '../api'
+  import Notice from '../lib/Notice.svelte'
   import { formatShortDate } from '../lib/time'
 
   let { trainerId }: { trainerId: string } = $props()
   let loaded = $derived(getTrainer(trainerId))
-  let clients = $derived(listClients().data)
+  let clientLoad = $derived(listClients())
+  let clients = $derived(clientLoad.status === 'ready' ? clientLoad.data : [])
   let name = $state('')
   let about = $state('')
   let phone = $state('')
@@ -15,7 +17,7 @@
   let filled = $state('')
 
   $effect(() => {
-    if (!loaded.ok || loaded.pending || !loaded.data.id || filled === loaded.data.id) return
+    if (loaded.status !== 'ready' || !loaded.data.id || filled === loaded.data.id) return
     name = loaded.data.name
     about = loaded.data.about
     phone = loaded.data.phone
@@ -58,7 +60,13 @@
   }
 </script>
 
-{#if loaded.ok && loaded.data.id}
+{#if loaded.status === 'pending' || clientLoad.status === 'pending'}
+  <Notice kind="pending" />
+{:else if loaded.status === 'error'}
+  <Notice kind="error" message={loaded.message} reload={loaded.reload} />
+{:else if clientLoad.status === 'error'}
+  <Notice kind="error" message={clientLoad.message} reload={clientLoad.reload} />
+{:else if loaded.data.id}
   <h2 class="day">{loaded.data.name}</h2>
   {#if !loaded.data.active}<p class="card tag">выключен</p>{/if}
   <form class="card" onsubmit={save}>
@@ -97,7 +105,5 @@
     <button class="danger" type="button" onclick={cancelFuture}>Снять будущие занятия</button>
     <button class="ghost" type="button" onclick={remove}>Удалить</button>
   </div>
-  {#if error}<p class="card error">{error}</p>{/if}
-{:else if !loaded.ok}
-  <p class="card error">{loaded.message}</p>
+  {#if error}<Notice kind="error" message={error} />{/if}
 {/if}

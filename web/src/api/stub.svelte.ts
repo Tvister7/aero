@@ -22,6 +22,7 @@ import { nextTypeColor } from '../lib/color'
 import { canonicalPricing, pricingError } from '../lib/pricing'
 import { defaultGuide, defaultPricing } from '../lib/studioDefaults'
 import { money } from '../lib/text'
+import { failed, ready } from './load'
 import {
   addDays,
   dateKeyOfIso,
@@ -199,7 +200,7 @@ function placeBooking(classRow: ClassRow, client: Client, { seed = false }: { se
 
 export function getStudio() {
   watch()
-  return { ok: true as const, data: { ...db.studio }, pending: false }
+  return ready({ ...db.studio })
 }
 
 export function getSchedule(from: string, to: string) {
@@ -208,7 +209,7 @@ export function getSchedule(from: string, to: string) {
     .filter((row) => row.status === 'scheduled' && classKind(row) !== 'individual' && inRange(row.starts_at, from, to))
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
     .map((row) => classView(row, true))
-  return { ok: true as const, data, pending: false }
+  return ready(data)
 }
 
 export function getAdminSchedule(from: string, to: string) {
@@ -217,21 +218,21 @@ export function getAdminSchedule(from: string, to: string) {
     .filter((row) => inRange(row.starts_at, from, to))
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
     .map((row) => classView(row))
-  return { ok: true as const, data, pending: false }
+  return ready(data)
 }
 
 export function getClass(id: string) {
   watch()
   const row = db.classes.find((item) => item.id === id && item.status === 'scheduled')
-  if (!row || classKind(row) === 'individual') return fail('CLASS_NOT_FOUND')
-  return { ok: true as const, data: classView(row, true) }
+  if (!row || classKind(row) === 'individual') return failed(MESSAGES.CLASS_NOT_FOUND)
+  return ready(classView(row, true))
 }
 
 export function getAdminClass(id: string) {
   watch()
   const row = db.classes.find((item) => item.id === id)
-  if (!row) return fail('CLASS_NOT_FOUND')
-  return { ok: true as const, data: classView(row) }
+  if (!row) return failed(MESSAGES.CLASS_NOT_FOUND)
+  return ready(classView(row))
 }
 
 export function bookClass(id: string, body: { name?: string; phone?: string }) {
@@ -263,23 +264,28 @@ function visitedOf(clientId: string): boolean {
   return db.attendances.some((row) => ids.has(row.booking_id))
 }
 
-export function getMe() {
-  watch()
+function meData() {
   const client = devClient()
   return {
-    ok: true as const,
-    pending: false,
-    data: {
-      name: client.name,
-      phone: client.phone,
-      username: client.username,
-      balance: balanceOf(client.id),
-      policy: client.policy,
-      is_admin: ui.role === 'admin',
-      is_trainer: ui.role === 'trainer',
-      visited: visitedOf(client.id),
-    },
+    name: client.name,
+    phone: client.phone,
+    username: client.username,
+    balance: balanceOf(client.id),
+    policy: client.policy,
+    is_admin: ui.role === 'admin',
+    is_trainer: ui.role === 'trainer',
+    visited: visitedOf(client.id),
   }
+}
+
+export function knownMe() {
+  watch()
+  return meData()
+}
+
+export function getMe() {
+  watch()
+  return ready(meData())
 }
 
 export function patchMe(body: { name?: string; phone?: string }) {
@@ -293,7 +299,7 @@ export function patchMe(body: { name?: string; phone?: string }) {
   client.name = name.trim()
   client.phone = phone.trim()
   touch()
-  return getMe()
+  return { ok: true as const, data: meData() }
 }
 
 export function ping() {
@@ -317,7 +323,7 @@ export function myBookings() {
     })
     .sort((a, b) => a.classRow.starts_at.localeCompare(b.classRow.starts_at))
     .map((row) => ({ booking_id: row.booking.id, class: classView(row.classRow) }))
-  return { ok: true as const, data }
+  return ready(data)
 }
 
 export function myVisits() {
@@ -332,7 +338,7 @@ export function myVisits() {
       return [{ title: classRow.title, trainer_name: trainer?.name ?? '', starts_at: classRow.starts_at, payment: row.payment }]
     })
     .sort((a, b) => b.starts_at.localeCompare(a.starts_at) || b.title.localeCompare(a.title))
-  return { ok: true as const, data, pending: false as const }
+  return ready(data)
 }
 
 function ownBooking(id: string) {
@@ -388,7 +394,7 @@ function trainerCard(row: (typeof db.trainers)[number]) {
 
 export function listTrainers() {
   watch()
-  return { ok: true as const, data: db.trainers.map(trainerCard) }
+  return ready(db.trainers.map(trainerCard))
 }
 
 export function createTrainer(name: string) {
@@ -450,8 +456,8 @@ function cancelFuture(trainerId: string) {
 export function getTrainer(id: string) {
   watch()
   const data = trainerDetail(id)
-  if (!data) return fail('VALIDATION')
-  return { ok: true as const, data, pending: false }
+  if (!data) return failed(MESSAGES.VALIDATION)
+  return ready(data)
 }
 
 export function addAbsence(id: string, startsOn: string, endsOn: string) {
@@ -526,7 +532,7 @@ function enrollmentRows() {
 
 export function listEnrollments() {
   watch()
-  return { ok: true as const, data: enrollmentRows(), pending: false }
+  return ready(enrollmentRows())
 }
 
 export function putEnrollments(templateIds: string[]) {
@@ -540,8 +546,8 @@ export function putEnrollments(templateIds: string[]) {
 export function getTrainerProfile() {
   watch()
   const row = db.trainers.find((item) => item.id === STUB_TRAINER)
-  if (!row) return { ok: true as const, pending: false, data: { id: '', name: '', active: true, about: '', phone: '', telegram_user_id: null } }
-  return { ok: true as const, pending: false, data: trainerCard(row) }
+  if (!row) return failed(MESSAGES.FORBIDDEN)
+  return ready(trainerCard(row))
 }
 
 export function patchTrainerProfile(body: { about: string; phone: string }) {
@@ -561,7 +567,7 @@ export function getTrainerSchedule(from: string, to: string) {
     .filter((row) => (row.trainer_id === STUB_TRAINER || (classKind(row) === 'hold' && row.status === 'scheduled')) && inRange(row.starts_at, from, to))
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
     .map((row) => classView(row))
-  return { ok: true as const, data, pending: false }
+  return ready(data)
 }
 
 export function listTrainerTypes() {
@@ -581,7 +587,7 @@ export function cancelTrainerClass(id: string) {
 
 export function getTrainerRoster(id: string) {
   const row = db.classes.find((item) => item.id === id && item.trainer_id === STUB_TRAINER && item.status === 'scheduled')
-  if (!row) return fail('CLASS_NOT_FOUND')
+  if (!row) return failed(MESSAGES.CLASS_NOT_FOUND)
   return getRoster(id)
 }
 
@@ -603,14 +609,12 @@ export function trainerStats(from: string, to: string) {
       .filter((id): id is string => Boolean(id)),
   )
   const attends = db.ledger.filter((row) => row.reason === 'attend' && row.booking_id && bookingIds.some((booking) => booking.id === row.booking_id)).length
-  return { ok: true as const, data: { from, to, clients: clients.size, attends } }
+  return ready({ from, to, clients: clients.size, attends })
 }
 
 export function listTypes() {
   watch()
-  return {
-    ok: true as const,
-    data: db.types.map((row) => ({
+  return ready(db.types.map((row) => ({
       id: row.id,
       title: row.title,
       duration_minutes: row.duration_minutes,
@@ -619,8 +623,7 @@ export function listTypes() {
       price_max: row.price_max,
       active: row.active,
       color: row.color,
-    })),
-  }
+  })))
 }
 
 export function createType(body: { title?: string; duration_minutes?: number; capacity?: number; price_min?: number | string; price_max?: number | string }) {
@@ -662,9 +665,7 @@ export function patchType(id: string, body: { title?: string; duration_minutes?:
 
 export function listTemplates() {
   watch()
-  return {
-    ok: true as const,
-    data: db.templates.map((row) => ({
+  return ready(db.templates.map((row) => ({
       id: row.id,
       trainer_id: row.trainer_id,
       training_type_id: row.training_type_id,
@@ -673,8 +674,7 @@ export function listTemplates() {
       start_time: row.start_time,
       capacity: row.capacity,
       active: row.active,
-    })),
-  }
+  })))
 }
 
 export function createTemplate(body: { trainer_id?: string; training_type_id?: string; weekday?: number; start_time?: string; capacity?: number }) {
@@ -847,12 +847,12 @@ export function createIndividual(body: { trainer_id: string; client_id: string; 
 export function searchTrainerClients(query: string) {
   watch()
   const needle = query.trim().toLowerCase()
-  if (!needle) return { ok: true as const, data: [] as { id: string; name: string }[], pending: false as const }
+  if (!needle) return ready([] as { id: string; name: string }[])
   const data = db.clients
     .filter((client) => client.name.toLowerCase().includes(needle))
     .slice(0, 20)
     .map((client) => ({ id: client.id, name: client.name }))
-  return { ok: true as const, data, pending: false as const }
+  return ready(data)
 }
 
 export function createTrainerIndividual(body: { client_id: string; starts_at: string; duration_minutes?: number }) {
@@ -913,7 +913,7 @@ export function patchClass(id: string, body: { status?: 'cancelled'; starts_at?:
 export function getRoster(id: string) {
   watch()
   const row = db.classes.find((item) => item.id === id && item.status === 'scheduled')
-  if (!row) return fail('CLASS_NOT_FOUND')
+  if (!row) return failed(MESSAGES.CLASS_NOT_FOUND)
   const bookings = db.bookings
     .filter((item) => item.class_id === id && item.status === 'booked')
     .flatMap((item): RosterBooking[] => {
@@ -929,7 +929,7 @@ export function getRoster(id: string) {
         attendance: attendance ? { payment: attendance.payment, marked_at: attendance.marked_at } : null,
       }]
     })
-  return { ok: true as const, data: { class: classView(row), bookings } }
+  return ready({ class: classView(row), bookings })
 }
 
 export function setAttendance(bookingId: string, arrived: boolean) {
@@ -1011,7 +1011,7 @@ function clientSummary(client: Client): ClientSummary {
   }
 }
 
-export function listClients(query = ''): { ok: true; data: ClientSummary[] } {
+export function listClients(query = '') {
   watch()
   const needle = query.trim().toLowerCase()
   const data = db.clients
@@ -1020,13 +1020,13 @@ export function listClients(query = ''): { ok: true; data: ClientSummary[] } {
       return [client.name, client.phone, client.username, client.telegram_id].join(' ').toLowerCase().includes(needle)
     })
     .map(clientSummary)
-  return { ok: true as const, data }
+  return ready(data)
 }
 
 export function getClient(id: string) {
   watch()
   const client = db.clients.find((item) => item.id === id)
-  if (!client) return fail('VALIDATION')
+  if (!client) return failed(MESSAGES.VALIDATION)
   const ledger = db.ledger
     .filter((row) => row.client_id === id)
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -1038,7 +1038,7 @@ export function getClient(id: string) {
       booking_id: row.booking_id,
       created_at: row.created_at,
     }))
-  return { ok: true as const, data: { ...clientSummary(client), ledger } }
+  return ready({ ...clientSummary(client), ledger })
 }
 
 export function patchClient(id: string, policy: BookingPolicy) {
@@ -1046,7 +1046,9 @@ export function patchClient(id: string, policy: BookingPolicy) {
   if (!client) return fail('VALIDATION')
   client.policy = policy
   touch()
-  return getClient(id)
+  const loaded = getClient(id)
+  if (loaded.status !== 'ready') return fail('VALIDATION')
+  return { ok: true as const, data: loaded.data }
 }
 
 export function grantCredits(id: string, delta: number, note?: string) {
@@ -1064,10 +1066,12 @@ export function grantCredits(id: string, delta: number, note?: string) {
     created_at: toTbilisiIso(new Date()),
   })
   touch()
-  return getClient(id)
+  const loaded = getClient(id)
+  if (loaded.status !== 'ready') return fail('VALIDATION')
+  return { ok: true as const, data: loaded.data }
 }
 
-export function stats(from: string, to: string): { ok: true; data: Stats } {
+export function stats(from: string, to: string) {
   watch()
   const users = new Set(db.opens.filter((row) => inRange(row.opened_at, from, to)).map((row) => row.messenger_user_id))
   const arrivals = db.attendances.filter((row) => row.active && inRange(row.marked_at, from, to))
@@ -1076,19 +1080,16 @@ export function stats(from: string, to: string): { ok: true; data: Stats } {
     const row = db.classes.find((item) => item.id === booking.class_id)
     return row && row.status !== 'cancelled' && new Date(row.ends_at) < new Date() && inRange(row.ends_at, from, to)
   })
-  return {
-    ok: true as const,
-    data: {
-      from,
-      to,
-      unique_users: users.size,
-      bookings_created: db.events.filter((row) => row.event_type === 'created' && inRange(row.created_at, from, to)).length,
-      bookings_cancelled: db.events.filter((row) => row.event_type === 'cancelled' && inRange(row.created_at, from, to)).length,
-      arrivals: arrivals.length,
-      no_shows: noShows.length,
-      unpaid_visits: arrivals.filter((row) => row.payment === 'unpaid').length,
-    },
-  }
+  return ready({
+    from,
+    to,
+    unique_users: users.size,
+    bookings_created: db.events.filter((row) => row.event_type === 'created' && inRange(row.created_at, from, to)).length,
+    bookings_cancelled: db.events.filter((row) => row.event_type === 'cancelled' && inRange(row.created_at, from, to)).length,
+    arrivals: arrivals.length,
+    no_shows: noShows.length,
+    unpaid_visits: arrivals.filter((row) => row.payment === 'unpaid').length,
+  })
 }
 
 export function clientsCsv() {
@@ -1124,7 +1125,7 @@ export function putStudio(body: Partial<StudioProfile>) {
   db.studio.guide = guide
   db.studio.pricing = canonicalPricing(body.pricing ?? '')
   touch()
-  return getStudio()
+  return { ok: true as const, data: { ...db.studio } }
 }
 
 export function listPublicTrainers() {
@@ -1133,14 +1134,14 @@ export function listPublicTrainers() {
     .filter((row) => row.active)
     .map(publicTrainer)
     .sort((a, b) => a.name.localeCompare(b.name, 'ru') || a.id.localeCompare(b.id))
-  return { ok: true as const, data, pending: false }
+  return ready(data)
 }
 
 export function getPublicTrainer(id: string) {
   watch()
   const row = db.trainers.find((item) => item.id === id && item.active)
-  if (!row) return { ...failMessage('Тренер не найден'), pending: false }
-  return { ok: true as const, data: publicTrainer(row), pending: false }
+  if (!row) return failed('Тренер не найден')
+  return ready(publicTrainer(row))
 }
 
 function publicTrainer(row: (typeof db.trainers)[number]): PublicTrainer {
@@ -1150,16 +1151,18 @@ function publicTrainer(row: (typeof db.trainers)[number]): PublicTrainer {
   return { id: row.id, name: row.name, about: row.about, phone: row.phone, classes }
 }
 
-export function todayRoster(): RosterData[] {
+export function todayRoster() {
   watch()
   const today = todayKey()
-  return db.classes
-    .filter((row) => row.status === 'scheduled' && classKind(row) !== 'hold' && dateKeyOfIso(row.starts_at) === today)
-    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
-    .flatMap((row) => {
-      const roster = getRoster(row.id)
-      return roster.ok ? [roster.data] : []
-    })
+  const rows = []
+  for (const row of db.classes
+    .filter((item) => item.status === 'scheduled' && classKind(item) !== 'hold' && dateKeyOfIso(item.starts_at) === today)
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))) {
+    const roster = getRoster(row.id)
+    if (roster.status !== 'ready') return roster
+    rows.push(roster.data)
+  }
+  return ready(rows)
 }
 
 function addClient(fields: Partial<Client> & Pick<Client, 'id' | 'telegram_id' | 'name'>): void {

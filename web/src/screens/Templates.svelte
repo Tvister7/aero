@@ -1,17 +1,23 @@
 <script lang="ts">
   import { createTemplate, generateWeek, listTemplates, listTrainers, listTypes, patchTemplate } from '../api'
+  import Notice from '../lib/Notice.svelte'
   import { focusField } from '../lib/focus'
   import { weekdayName } from '../lib/time'
 
-  let templates = $derived(listTemplates().data)
-  let trainers = $derived(listTrainers().data.filter((item) => item.active))
-  let types = $derived(listTypes().data.filter((item) => item.active))
+  let templateLoad = $derived(listTemplates())
+  let trainerLoad = $derived(listTrainers())
+  let typeLoad = $derived(listTypes())
+  let templates = $derived(templateLoad.status === 'ready' ? templateLoad.data : [])
+  let trainers = $derived(trainerLoad.status === 'ready' ? trainerLoad.data.filter((item) => item.active) : [])
+  let types = $derived(typeLoad.status === 'ready' ? typeLoad.data.filter((item) => item.active) : [])
   let trainerId = $state('')
   let typeId = $state('')
   let weekday = $state('1')
   let startTime = $state('10:00')
   let weekStart = $state('')
   let notice = $state('')
+  let failed = $state(false)
+  let loadError = $derived(templateLoad.status === 'error' ? templateLoad : trainerLoad.status === 'error' ? trainerLoad : typeLoad.status === 'error' ? typeLoad : null)
 
   $effect(() => {
     if (!trainerId && trainers[0]) trainerId = trainers[0].id
@@ -26,11 +32,13 @@
       weekday: Number(weekday),
       start_time: startTime,
     })
+    failed = !response.ok
     notice = response.ok ? 'Шаблон добавлен. Текущие занятия не изменились.' : response.message
   }
 
   async function generate() {
     const response = await generateWeek(weekStart || undefined)
+    failed = !response.ok
     notice = response.ok
       ? `Неделя ${response.week_start}: создано ${response.created}, обновлено ${response.updated}.`
       : response.message
@@ -38,8 +46,13 @@
 </script>
 
 <h2 class="day">Шаблоны</h2>
+{#if templateLoad.status === 'pending' || trainerLoad.status === 'pending' || typeLoad.status === 'pending'}
+  <Notice kind="pending" />
+{:else if loadError}
+  <Notice kind="error" message={loadError.message} reload={loadError.reload} />
+{:else}
 <button class="ghost add" type="button" onclick={() => focusField('tpl-trainer')}>Добавить</button>
-{#if notice}<p class="card">{notice}</p>{/if}
+{#if notice}<Notice kind={failed ? 'error' : 'ok'} message={notice} />{/if}
 <div class="card">
   <label for="week">Понедельник недели</label>
   <input id="week" type="date" bind:value={weekStart} />
@@ -75,3 +88,4 @@
   <input id="tpl-time" type="time" bind:value={startTime} />
   <button class="primary" type="submit">Добавить шаблон</button>
 </form>
+{/if}

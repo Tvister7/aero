@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { getMe, ping, roleSwitchVisible, setPreviewRole } from './api'
+  import { getMe, knownMe, ping, roleSwitchVisible, setPreviewRole } from './api'
+  import Notice from './lib/Notice.svelte'
   import AdminClass from './screens/AdminClass.svelte'
   import AdminMenu from './screens/AdminMenu.svelte'
   import Bookings from './screens/Bookings.svelte'
@@ -21,6 +22,9 @@
   import Templates from './screens/Templates.svelte'
   import TrainerCard from './screens/TrainerCard.svelte'
   import TrainerHome from './screens/TrainerHome.svelte'
+  import TrainerProfile from './screens/TrainerProfile.svelte'
+  import TrainerRoster from './screens/TrainerRoster.svelte'
+  import TrainerStats from './screens/TrainerStats.svelte'
   import Trainers from './screens/Trainers.svelte'
   import Types from './screens/Types.svelte'
   import Visits from './screens/Visits.svelte'
@@ -62,6 +66,9 @@
     if (head === 'studio' && parts[1] === 'trainers' && parts[2]) return { name: 'studio-trainer', id: parts[2] }
     if (head === 'studio' && parts[1] === 'trainers') return { name: 'studio-trainers' }
     if (head === 'studio') return { name: 'studio' }
+    if (head === 'trainer' && parts[1] === 'roster') return { name: 'trainer-roster', area: 'trainer' }
+    if (head === 'trainer' && parts[1] === 'stats') return { name: 'trainer-stats', area: 'trainer' }
+    if (head === 'trainer' && parts[1] === 'card') return { name: 'trainer-card', area: 'trainer' }
     if (head === 'trainer') return { name: 'trainer', area: 'trainer' }
     if (head !== 'admin') return { name: 'schedule' }
     const section = parts[1] ?? ''
@@ -73,21 +80,39 @@
   }
 
   let route = $derived(parse(hash))
-  let me = $derived(getMe())
-  let serverAdmin = $derived(Boolean(me.data?.is_admin))
-  let serverTrainer = $derived(Boolean(me.data?.is_trainer))
-  let preview = roleSwitchVisible()
-  let picked = $state<Role | ''>('')
-  let role = $derived.by((): Role => {
-    if (preview) {
-      if (serverAdmin) return 'admin'
-      if (serverTrainer) return 'trainer'
-      return 'client'
+  const roleKey = 'aero-role'
+
+  function readStored(): Role | '' {
+    try {
+      const value = sessionStorage.getItem(roleKey)
+      if (value === 'client' || value === 'trainer' || value === 'admin') return value
+    } catch {
+      return ''
     }
-    if (picked === 'admin' && serverAdmin) return 'admin'
-    if (picked === 'trainer' && serverTrainer) return 'trainer'
-    if (picked === 'client') return 'client'
-    if (serverAdmin) return 'admin'
+    return ''
+  }
+
+  let preview = roleSwitchVisible()
+  const storedRole = readStored()
+  let picked = $state<Role | ''>(storedRole)
+  if (preview && storedRole) setPreviewRole(storedRole)
+  let me = $derived(getMe())
+  let identity = $derived(knownMe())
+  let serverAdmin = $derived(Boolean(identity?.is_admin))
+  let serverTrainer = $derived(Boolean(identity?.is_trainer))
+
+  function allowed(value: Role) {
+    if (preview) return true
+    if (value === 'admin') return serverAdmin
+    if (value === 'trainer') return serverTrainer
+    return true
+  }
+
+  let role = $derived.by((): Role | '' => {
+    if (!identity) return ''
+    if (picked && allowed(picked)) return picked
+    if (identity.is_admin) return 'admin'
+    if (identity.is_trainer) return 'trainer'
     return 'client'
   })
   let showClient = $derived(preview || serverAdmin || serverTrainer)
@@ -107,8 +132,16 @@
     return () => observer.disconnect()
   })
 
+  let placed = $state(false)
+
   $effect(() => {
-    if (me.pending) return
+    if (!identity || !role) return
+    const bare = hash === '#' || hash === '#/' || hash === ''
+    if (!placed) {
+      placed = true
+      if (bare && role === 'admin') location.hash = '#/admin'
+      if (bare && role === 'trainer') location.hash = '#/trainer'
+    }
     if (route.area === 'admin' && role !== 'admin') location.hash = role === 'trainer' ? '#/trainer' : '#/'
     if (route.area === 'trainer' && role !== 'trainer') location.hash = role === 'admin' ? '#/admin' : '#/'
   })
@@ -134,8 +167,13 @@
   })
 
   function choose(next: Role) {
+    picked = next
+    try {
+      sessionStorage.setItem(roleKey, next)
+    } catch {
+      /* session storage can be blocked */
+    }
     if (preview) setPreviewRole(next)
-    else picked = next
     location.hash = next === 'admin' ? '#/admin' : next === 'trainer' ? '#/trainer' : '#/'
   }
 </script>
@@ -144,7 +182,7 @@
   <header class="top" bind:this={header}>
     <p class="brand">aero.ge</p>
     {#if showSwitch}
-      <div class="switch">
+      <div class="switch" role="group" aria-label="Роль">
         {#if showClient}<button type="button" aria-pressed={role === 'client'} data-testid="role-client" onclick={() => choose('client')}>Клиент</button>{/if}
         {#if showTrainer}<button type="button" aria-pressed={role === 'trainer'} data-testid="role-trainer" onclick={() => choose('trainer')}>Тренер</button>{/if}
         {#if showAdmin}<button type="button" aria-pressed={role === 'admin'} data-testid="role-admin" onclick={() => choose('admin')}>Админ</button>{/if}
@@ -154,7 +192,11 @@
 
   <main class="page">
     {#if back && !inTelegram}<a class="page-back" href={back}>Назад</a>{/if}
-    {#if route.name === 'schedule'}
+    {#if !identity && me.status === 'error'}
+      <Notice kind="error" message={me.message} reload={me.reload} />
+    {:else if !identity}
+      <Notice kind="pending" />
+    {:else if route.name === 'schedule'}
       <Schedule />
     {:else if route.name === 'class'}
       <ClassDetail classId={route.id ?? ''} />
@@ -188,6 +230,12 @@
       <NewClass />
     {:else if route.name === 'trainer'}
       <TrainerHome />
+    {:else if route.name === 'trainer-roster'}
+      <TrainerRoster />
+    {:else if route.name === 'trainer-stats'}
+      <TrainerStats />
+    {:else if route.name === 'trainer-card'}
+      <TrainerProfile />
     {:else if route.name === 'admin-trainer'}
       <TrainerCard trainerId={route.id ?? ''} />
     {:else if route.name === 'admin-trainers'}
@@ -205,14 +253,18 @@
     {/if}
   </main>
 
+  {#if role}
   <nav class="nav">
     {#if role === 'admin'}
       <a href="#/admin/roster" class:active={route.name === 'admin-roster'}>Журнал</a>
       <a href="#/admin/schedule" class:active={route.name === 'admin-schedule'}>Неделя</a>
       <a href="#/admin/clients" class:active={route.name === 'admin-clients' || route.name === 'client'}>Клиенты</a>
-      <a href="#/admin" class:active={route.name === 'admin'}>Ещё</a>
+      <a href="#/admin" class:active={route.area === 'admin' && route.name !== 'admin-roster' && route.name !== 'admin-schedule' && route.name !== 'admin-clients' && route.name !== 'client'}>Ещё</a>
     {:else if role === 'trainer'}
       <a href="#/trainer" class:active={route.name === 'trainer'}>Занятия</a>
+      <a href="#/trainer/roster" class:active={route.name === 'trainer-roster'}>Журнал</a>
+      <a href="#/trainer/stats" class:active={route.name === 'trainer-stats'}>Сводка</a>
+      <a href="#/trainer/card" class:active={route.name === 'trainer-card'}>Карточка</a>
     {:else}
       <a href="#/" class:active={route.name === 'schedule' || route.name === 'class'}>Расписание</a>
       <a href="#/bookings" class:active={route.name === 'bookings'}>Записи</a>
@@ -220,4 +272,5 @@
       <a href="#/studio" class:active={route.name === 'studio' || route.name.startsWith('studio-')}>Студия</a>
     {/if}
   </nav>
+  {/if}
 </div>

@@ -1,11 +1,16 @@
 <script lang="ts">
   import { getPublicTrainer } from '../api'
+  import Notice from '../lib/Notice.svelte'
 
   let { trainerId }: { trainerId: string } = $props()
   let card = $derived(getPublicTrainer(trainerId))
 </script>
 
-{#if card.ok}
+{#if card.status === 'pending'}
+  <Notice kind="pending" />
+{:else if card.status === 'error'}
+  <Notice kind="error" message={card.message} reload={card.reload} />
+{:else}
   <h2 class="day">{card.data.name}</h2>
   <article class="card">
     {#if card.data.about}<p class="guide">{card.data.about}</p>{:else}<p class="muted">О тренере пока ничего не написано.</p>{/if}
@@ -15,6 +20,4 @@
       {#each card.data.classes as title (title)}<p>{title}</p>{/each}
     {/if}
   </article>
-{:else if card.message}
-  <p class="card error">{card.message}</p>
 {/if}
