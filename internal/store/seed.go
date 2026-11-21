@@ -97,7 +97,7 @@ func ImportSQL(ctx context.Context, db *DB, text string, now time.Time) (SeedCou
 			}
 			counts.Templates++
 		}
-		return ensureTypeColors(ctx, tx)
+		return nil
 	})
 	return counts, err
 }
@@ -204,10 +204,14 @@ func upsertType(ctx context.Context, q querier, ids func() string, now time.Time
 		return id, err
 	}
 	id = ids()
+	color, err := nextTypeColor(ctx, q, item.Title)
+	if err != nil {
+		return "", err
+	}
 	_, err = q.ExecContext(ctx, `
-		insert into training_types (id, title, duration_minutes, capacity, price_min, price_max, active, created_at)
-		values (?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, item.Title, item.DurationMinutes, item.Capacity, item.PriceMin, item.PriceMax, item.Active, utc(now))
+		insert into training_types (id, title, duration_minutes, capacity, price_min, price_max, active, color, created_at)
+		values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, item.Title, item.DurationMinutes, item.Capacity, item.PriceMin, item.PriceMax, item.Active, color, utc(now))
 	return id, err
 }
 

@@ -58,19 +58,6 @@ services:
         condition: service_healthy
     restart: "no"
 
-  pgload:
-    image: dimitri/pgloader:v3.6.7
-    profiles: ["migrate"]
-    volumes:
-      - aero-data:/data:ro
-      - ./sql/pgloader.load:/pgloader.load:ro
-    command: ["pgloader", "/pgloader.load"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-
 volumes:
   postgres-data:
   aero-backups:
-  aero-data:

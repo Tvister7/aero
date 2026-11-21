@@ -134,13 +134,7 @@ func (d *DB) migrate(ctx context.Context) error {
 		}
 	}
 	return d.write(ctx, func(tx querier) error {
-		if err := ensureTrainerColumns(ctx, tx); err != nil {
-			return err
-		}
-		if err := ensureStudioColumns(ctx, tx); err != nil {
-			return err
-		}
-		return ensureTypeColors(ctx, tx)
+		return seedStudioDefaults(ctx, tx)
 	})
 }
 
@@ -282,15 +276,6 @@ func Rebind(query string) string {
 		b.WriteByte(char)
 	}
 	return b.String()
-}
-
-func columnCount(ctx context.Context, q querier, table, column string) (int, error) {
-	var found int
-	err := q.QueryRowContext(ctx, `
-		select count(*) from information_schema.columns
-		where table_schema = current_schema() and table_name = ? and column_name = ?`,
-		table, column).Scan(&found)
-	return found, err
 }
 
 func newID() string {

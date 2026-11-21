@@ -40,9 +40,12 @@ func TestStudioStartsWithGuideAndPricing(t *testing.T) {
 	}
 }
 
-func TestPricingUpgradesTextAndRejectsFraction(t *testing.T) {
+func TestStudioPricingRejectsFraction(t *testing.T) {
 	db := openTest(t)
 	ctx := context.Background()
+	if _, err := db.PutStudio(ctx, Studio{Pricing: `{"base":{"1":35.5}}`}); err == nil {
+		t.Fatal("fraction accepted")
+	}
 	sqlDB, err := sql.Open("pgx", db.DSN())
 	if err != nil {
 		t.Fatal(err)
@@ -57,33 +60,6 @@ func TestPricingUpgradesTextAndRejectsFraction(t *testing.T) {
 	}
 	if poolSchema != sqlSchema {
 		t.Fatalf("schema %s vs %s", poolSchema, sqlSchema)
-	}
-	for _, stmt := range []string{
-		`alter table studio drop constraint if exists studio_pricing_check`,
-		`alter table studio alter column pricing drop default`,
-		`alter table studio alter column pricing type text using pricing::text`,
-		`update studio set pricing = ''`,
-		`alter table studio alter column pricing set default ''`,
-		`alter table studio alter column pricing set not null`,
-	} {
-		if _, err := sqlDB.ExecContext(ctx, stmt); err != nil {
-			t.Fatal(stmt, err)
-		}
-	}
-	again, err := Open(db.DSN())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = again.Close() })
-	studio, err := again.Studio(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(studio.Pricing, `"split":130`) {
-		t.Fatalf("pricing %s", studio.Pricing)
-	}
-	if _, err := db.PutStudio(ctx, Studio{Pricing: `{"base":{"1":35.5}}`}); err == nil {
-		t.Fatal("fraction accepted")
 	}
 	if _, err := sqlDB.ExecContext(ctx, `update studio set pricing = $1::jsonb`, `{"base":{"1":35.5}}`); err == nil {
 		t.Fatal("fraction stored")
