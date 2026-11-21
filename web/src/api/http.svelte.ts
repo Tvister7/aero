@@ -6,6 +6,7 @@ import type {
   ClientSummary,
   ErrorCode,
   Me,
+  MessageTemplate,
   RosterData,
   Stats,
   PublicTrainer,
@@ -501,6 +502,16 @@ export async function clientsCsv() {
 
 export async function putStudio(body: Partial<StudioProfile>) {
   return send('PUT', '/admin/studio', body) as Promise<ApiError | { ok: true; data: StudioProfile }>
+}
+
+export function listMessages() {
+  return readList<MessageTemplate>('messages', '/admin/messages')
+}
+
+export async function putMessage(key: string, body: string) {
+  return send('PUT', `/admin/messages/${encodeURIComponent(key)}`, { body }) as Promise<
+    ApiError | { ok: true; data: MessageTemplate }
+  >
 }
 
 export function todayRoster(): Load<RosterData[]> {

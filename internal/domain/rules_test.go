@@ -43,6 +43,18 @@ func TestFirstClassNotices(t *testing.T) {
 	if AdminFirstBookingText("", "", "", "Aero Yoga", starts) != "Первая запись: без имени.\nAero Yoga, 21.11 10:00.\nНапишите код от подъезда в день занятия." {
 		t.Fatal("nameless")
 	}
+	if StartText(true) != "Здравствуйте. Это студия aero.ge.\n\nВ приложении — расписание, запись и баланс. Откройте его кнопкой ниже." {
+		t.Fatal("start with button")
+	}
+	if StartText(false) != "Здравствуйте. Это студия aero.ge.\n\nРасписание, запись и баланс — в приложении. Откройте его кнопкой меню слева от поля ввода." {
+		t.Fatal("start without button")
+	}
+	if WelcomeBody("", false) != StartText(false) || WelcomeBody(StartText(true), false) != StartText(false) {
+		t.Fatal("default welcome follows the button")
+	}
+	if WelcomeBody("Ждём вас.", true) != "Ждём вас." {
+		t.Fatal("custom welcome")
+	}
 }
 
 func TestBookRestrictedWithoutCredits(t *testing.T) {

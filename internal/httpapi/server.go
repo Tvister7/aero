@@ -87,6 +87,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /admin/stats", s.admin(s.stats))
 	mux.HandleFunc("GET /admin/studio", s.admin(s.adminStudio))
 	mux.HandleFunc("PUT /admin/studio", s.admin(s.putStudio))
+	mux.HandleFunc("GET /admin/messages", s.admin(s.messages))
+	mux.HandleFunc("PUT /admin/messages/{key}", s.admin(s.putMessage))
 	return s.cors(mux)
 }
 

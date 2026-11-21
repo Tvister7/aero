@@ -10,4 +10,5 @@
   <a href="#/admin/clients">Клиенты</a>
   <a href="#/admin/stats">Сводка и выгрузка</a>
   <a href="#/admin/studio">Контакты студии</a>
+  <a href="#/admin/messages">Сообщения</a>
 </nav>

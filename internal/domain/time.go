@@ -148,3 +148,21 @@ func EmptyBalanceText(booked bool, title string, starts time.Time) string {
 	}
 	return fmt.Sprintf("Вас не записали на %s %s, занятия на балансе закончились.", title, when(starts))
 }
+
+func StartText(withButton bool) string {
+	hello := "Здравствуйте. Это студия aero.ge."
+	if withButton {
+		return hello + "\n\nВ приложении — расписание, запись и баланс. Откройте его кнопкой ниже."
+	}
+	return hello + "\n\nРасписание, запись и баланс — в приложении. Откройте его кнопкой меню слева от поля ввода."
+}
+
+// WelcomeBody — текст /start. Пустая строка и оба стандартных варианта
+// подстраиваются под наличие кнопки. Свой текст админа уходит как есть.
+func WelcomeBody(stored string, withButton bool) string {
+	stored = strings.TrimSpace(stored)
+	if stored == "" || stored == StartText(true) || stored == StartText(false) {
+		return StartText(withButton)
+	}
+	return stored
+}

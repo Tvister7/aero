@@ -78,6 +78,20 @@ type StudioResponse struct {
 	Data sqlite.Studio `json:"data"`
 }
 
+// MessagesResponse каталог заменяемых текстов.
+// @Description Каталог заменяемых текстов.
+type MessagesResponse struct {
+	OK   bool                     `json:"ok" example:"true"`
+	Data []sqlite.MessageTemplate `json:"data"`
+}
+
+// MessageResponse один заменяемый текст.
+// @Description Один заменяемый текст.
+type MessageResponse struct {
+	OK   bool                   `json:"ok" example:"true"`
+	Data sqlite.MessageTemplate `json:"data"`
+}
+
 // ClassResponse ответ с одним занятием.
 // @Description Ответ с одним занятием.
 type ClassResponse struct {

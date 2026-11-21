@@ -573,6 +573,52 @@ func (s *Server) putStudio(w http.ResponseWriter, r *http.Request, _ telegram.Us
 	writeOK(w, map[string]any{"data": saved})
 }
 
+// Каталог текстов, которые админ может заменить. Сейчас там приветствие /start.
+// Новое уведомление появляется в этом же списке, когда его ключ добавляют в каталог.
+//
+// @Summary Тексты сообщений
+// @Tags Админ
+// @Security TMA
+// @Success 200 {object} MessagesResponse
+// @Failure 401 {object} ErrorBody
+// @Failure 403 {object} ErrorBody
+// @Failure 500 {object} ErrorBody
+// @Router /admin/messages [get]
+func (s *Server) messages(w http.ResponseWriter, r *http.Request, _ telegram.User) {
+	data, err := s.DB.Messages(r.Context())
+	if finish(w, err) {
+		return
+	}
+	writeOK(w, map[string]any{"data": data})
+}
+
+// Замена одного текста из каталога. Неизвестный key отвечает VALIDATION.
+//
+// @Summary Сохранить текст сообщения
+// @Description Пустой текст и неизвестный key отвечают VALIDATION. Длиннее 4000 знаков тоже.
+// @Tags Админ
+// @Security TMA
+// @Param key path string true "Ключ каталога"
+// @Param body body sqlite.MessageInput true "Текст"
+// @Success 200 {object} MessageResponse
+// @Failure 400 {object} ErrorBody
+// @Failure 401 {object} ErrorBody
+// @Failure 403 {object} ErrorBody
+// @Failure 500 {object} ErrorBody
+// @Router /admin/messages/{key} [put]
+func (s *Server) putMessage(w http.ResponseWriter, r *http.Request, _ telegram.User) {
+	var body sqlite.MessageInput
+	if err := readJSON(r, &body); err != nil {
+		writeDomain(w, err)
+		return
+	}
+	saved, err := s.DB.PutMessage(r.Context(), r.PathValue("key"), body.Body)
+	if finish(w, err) {
+		return
+	}
+	writeOK(w, map[string]any{"data": saved})
+}
+
 // Резерв зала без записи.
 //
 // @Summary Зарезервировать время

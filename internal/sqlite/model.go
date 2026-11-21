@@ -233,6 +233,21 @@ type Studio struct {
 	Pricing      string `json:"pricing" example:"{\"base\":{\"1\":35}}"`
 }
 
+// MessageTemplate заменяемый текст бота. key берётся из каталога, title только для экрана.
+// Свой body хранится в базе. Пока каталог не поменяли, неизвестный key сохранить нельзя.
+// @Description Заменяемый текст бота. key берётся из каталога, title только для экрана. Свой body хранится в базе. Пока каталог не поменяли, неизвестный key сохранить нельзя.
+type MessageTemplate struct {
+	Key   string `json:"key" example:"start"`
+	Title string `json:"title" example:"Приветствие /start"`
+	Body  string `json:"body" example:"Здравствуйте. Это студия aero.ge."`
+}
+
+// MessageInput новый текст одного сообщения.
+// @Description Новый текст одного сообщения.
+type MessageInput struct {
+	Body string `json:"body" example:"Здравствуйте. Это студия aero.ge."`
+}
+
 // PublicTrainer карточка тренера для клиента. Telegram id сюда не входит.
 // @Description Карточка тренера для клиента. Telegram id сюда не входит.
 type PublicTrainer struct {

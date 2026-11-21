@@ -35,6 +35,12 @@ export type StudioProfile = {
   pricing: string
 }
 
+export type MessageTemplate = {
+  key: string
+  title: string
+  body: string
+}
+
 export type PublicTrainer = {
   id: string
   name: string
@@ -212,6 +218,7 @@ export type Database = {
   attendances: Attendance[]
   opens: AppOpen[]
   studio: StudioProfile
+  messages: Record<string, string>
   absences: AbsenceRow[]
 }
 

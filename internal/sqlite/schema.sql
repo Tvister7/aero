@@ -143,6 +143,11 @@ insert into studio (id, address, phone, instagram_url, contact_url, map_url)
 values (1, '', '', '', '', '')
 on conflict (id) do nothing;
 
+create table if not exists messages (
+  key text primary key,
+  body text not null
+);
+
 create table if not exists enrollments (
   id text primary key,
   client_id text not null references clients(id),
