@@ -675,6 +675,109 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/messages": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Тексты сообщений",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/MessagesResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/messages/{key}": {
+            "put": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Пустой текст и неизвестный key отвечают VALIDATION. Длиннее 4000 знаков тоже.",
+                "tags": [
+                    "Админ"
+                ],
+                "summary": "Сохранить текст сообщения",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Ключ каталога",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Текст",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/MessageInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/MessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/schedule": {
             "get": {
                 "security": [
@@ -3752,6 +3855,63 @@ const docTemplate = `{
             "properties": {
                 "data": {
                     "$ref": "#/definitions/Me"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "MessageInput": {
+            "description": "Новый текст одного сообщения.",
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string",
+                    "example": "Здравствуйте. Это студия aero.ge."
+                }
+            }
+        },
+        "MessageResponse": {
+            "description": "Один заменяемый текст.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/MessageTemplate"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "MessageTemplate": {
+            "description": "Заменяемый текст бота. key берётся из каталога, title только для экрана. Свой body хранится в базе. Пока каталог не поменяли, неизвестный key сохранить нельзя.",
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string",
+                    "example": "Здравствуйте. Это студия aero.ge."
+                },
+                "key": {
+                    "type": "string",
+                    "example": "start"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Приветствие /start"
+                }
+            }
+        },
+        "MessagesResponse": {
+            "description": "Каталог заменяемых текстов.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/MessageTemplate"
+                    }
                 },
                 "ok": {
                     "type": "boolean",

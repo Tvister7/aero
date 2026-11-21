@@ -14,6 +14,7 @@ import type {
   RosterData,
   Stats,
   PublicTrainer,
+  MessageTemplate,
   StudioProfile,
   TrainingType,
 } from './types'
@@ -89,6 +90,7 @@ const db = $state<Database>({
     guide: defaultGuide,
     pricing: defaultPricing,
   },
+  messages: {},
   absences: [],
 })
 
@@ -1126,6 +1128,32 @@ export function putStudio(body: Partial<StudioProfile>) {
   db.studio.pricing = canonicalPricing(body.pricing ?? '')
   touch()
   return { ok: true as const, data: { ...db.studio } }
+}
+
+const startText =
+  'Здравствуйте. Это студия aero.ge.\n\nВ приложении — расписание, запись и баланс. Откройте его кнопкой ниже.'
+
+const messageCatalog: MessageTemplate[] = [{ key: 'start', title: 'Приветствие /start', body: startText }]
+
+export function listMessages() {
+  watch()
+  return ready(
+    messageCatalog.map((item) => ({
+      ...item,
+      body: db.messages[item.key] || item.body,
+    })),
+  )
+}
+
+export function putMessage(key: string, body: string) {
+  const item = messageCatalog.find((row) => row.key === key)
+  if (!item) return failMessage('Такого сообщения нет')
+  const text = body.trim()
+  if (!text) return failMessage('Текст сообщения пустой')
+  if ([...text].length > 4000) return failMessage('Текст длиннее 4000 знаков')
+  db.messages[key] = text
+  touch()
+  return { ok: true as const, data: { key, title: item.title, body: text } }
 }
 
 export function listPublicTrainers() {

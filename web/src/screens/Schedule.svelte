@@ -45,7 +45,9 @@
   })
   let weekDays = $derived(Array.from({ length: 7 }, (_, index) => addDays(start, index)))
   let legend = $derived(dayMarks(classes))
-  let openedDay = $state('')
+  let focusDay = $state(todayKey())
+  let focusTick = $state(1)
+  let scrolled = 0
   let origin: { x: number; y: number; id: number } | null = null
   let swiped = false
 
@@ -59,7 +61,8 @@
 
   function step(direction: 1 | -1) {
     if (mode === 'week') {
-      openedDay = ''
+      focusDay = ''
+      focusTick += 1
       start = addDays(start, direction * 7)
       return
     }
@@ -99,23 +102,51 @@
 
   onDestroy(clearGesture)
 
-  async function openDay(day: string) {
-    openedDay = day
+  function showWeek() {
+    if (mode === 'week') return
+    mode = 'week'
+    if (focusDay) focusTick += 1
+  }
+
+  function openDay(day: string) {
+    focusDay = day
+    focusTick += 1
     start = mondayKey(day)
     mode = 'week'
-    await tick()
+  }
+
+  function scrollToDay(day: string) {
     const heading = document.getElementById(`day-${day}`)
     const bar = document.querySelector('.weekbar')
-    if (!heading || !(bar instanceof HTMLElement)) return
+    if (!heading || !(bar instanceof HTMLElement)) return false
     const stick = Number.parseFloat(getComputedStyle(bar).top) + bar.getBoundingClientRect().height
     const top = heading.getBoundingClientRect().top + window.scrollY - stick - 8
-    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    window.scrollTo({ top: Math.max(0, top), behavior: 'auto' })
+    return true
   }
+
+  $effect(() => {
+    const token = focusTick
+    const day = focusDay
+    if (mode !== 'week' || result.status !== 'ready' || scrolled === token) return
+    if (!day || day < start || day > end) {
+      scrolled = token
+      return
+    }
+    let cancel = false
+    void tick().then(() => {
+      if (cancel || token !== focusTick) return
+      if (scrollToDay(day)) scrolled = token
+    })
+    return () => {
+      cancel = true
+    }
+  })
 </script>
 
 <div class="weekbar">
   <div class="tabs" role="group" aria-label="Вид расписания">
-    <button type="button" aria-pressed={mode === 'week'} onclick={() => (mode = 'week')}>Неделя</button>
+    <button type="button" aria-pressed={mode === 'week'} onclick={showWeek}>Неделя</button>
     <button type="button" aria-pressed={mode === 'month'} data-testid="tab-month" onclick={() => (mode = 'month')}>Месяц</button>
   </div>
   {#if mode === 'week'}
@@ -139,12 +170,12 @@
 {:else if result.status === 'error'}
   <Notice kind="error" message={result.message} reload={result.reload} />
 {:else if mode === 'week'}
-  {#if classes.length === 0 && !openedDay}
+  {#if classes.length === 0 && (!focusDay || focusDay < start || focusDay > end)}
     <p class="card muted">На этой неделе занятий нет.</p>
   {/if}
   {#each weekDays as day (day)}
     {@const items = byDay.get(day) ?? []}
-    {#if items.length > 0 || day === openedDay}
+    {#if items.length > 0 || day === focusDay}
     <h2 class="day" id="day-{day}">{formatDay(day)}</h2>
     {#each items as item (item.id)}
       {@const begun = hoursUntil(item.starts_at) <= 0}

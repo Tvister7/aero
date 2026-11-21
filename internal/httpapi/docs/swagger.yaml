@@ -511,6 +511,48 @@ definitions:
         example: true
         type: boolean
     type: object
+  MessageInput:
+    description: Новый текст одного сообщения.
+    properties:
+      body:
+        example: Здравствуйте. Это студия aero.ge.
+        type: string
+    type: object
+  MessageResponse:
+    description: Один заменяемый текст.
+    properties:
+      data:
+        $ref: '#/definitions/MessageTemplate'
+      ok:
+        example: true
+        type: boolean
+    type: object
+  MessageTemplate:
+    description: Заменяемый текст бота. key берётся из каталога, title только для
+      экрана. Свой body хранится в базе. Пока каталог не поменяли, неизвестный key
+      сохранить нельзя.
+    properties:
+      body:
+        example: Здравствуйте. Это студия aero.ge.
+        type: string
+      key:
+        example: start
+        type: string
+      title:
+        example: Приветствие /start
+        type: string
+    type: object
+  MessagesResponse:
+    description: Каталог заменяемых текстов.
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/MessageTemplate'
+        type: array
+      ok:
+        example: true
+        type: boolean
+    type: object
   MyBooking:
     description: Будущая запись клиента.
     properties:
@@ -1539,6 +1581,72 @@ paths:
       security:
       - TMA: []
       summary: Создать индивидуальное
+      tags:
+      - Админ
+  /admin/messages:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/MessagesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Тексты сообщений
+      tags:
+      - Админ
+  /admin/messages/{key}:
+    put:
+      description: Пустой текст и неизвестный key отвечают VALIDATION. Длиннее 4000
+        знаков тоже.
+      parameters:
+      - description: Ключ каталога
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: Текст
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/MessageInput'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Сохранить текст сообщения
       tags:
       - Админ
   /admin/schedule:

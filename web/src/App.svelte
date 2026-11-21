@@ -9,6 +9,7 @@
   import ClientCard from './screens/ClientCard.svelte'
   import Clients from './screens/Clients.svelte'
   import NewClass from './screens/NewClass.svelte'
+  import Messages from './screens/Messages.svelte'
   import Profile from './screens/Profile.svelte'
   import Roster from './screens/Roster.svelte'
   import Schedule from './screens/Schedule.svelte'
@@ -250,6 +251,8 @@
       <Stats />
     {:else if route.name === 'admin-studio'}
       <StudioEdit />
+    {:else if route.name === 'admin-messages'}
+      <Messages />
     {/if}
   </main>
 
