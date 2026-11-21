@@ -42,6 +42,12 @@ func Book(in BookRequest) (BookResult, *Error) {
 	if in.Client.Policy == Restricted && in.Balance <= 0 {
 		return BookResult{}, Fail(NoCredits)
 	}
+	if err := ValidateName(in.Name); err != nil {
+		return BookResult{}, err
+	}
+	if err := ValidatePhone(in.Phone); err != nil {
+		return BookResult{}, err
+	}
 	client := merged(in.Client, in.Name, in.Phone, in.Username)
 	if client.Policy == "" {
 		client.Policy = Postpay
@@ -80,8 +86,20 @@ func merged(client Client, name, phone, username string) Client {
 	return client
 }
 
-func MergeProfile(client Client, name, phone string) Client {
-	return merged(client, name, phone, "")
+// MergeProfile записывает имя и телефон как есть, в том числе пустыми.
+// Запись на занятие по-прежнему не стирает профиль пустыми полями: это делает merged.
+func MergeProfile(client Client, name, phone string) (Client, *Error) {
+	name = strings.TrimSpace(name)
+	phone = strings.TrimSpace(phone)
+	if err := ValidateName(name); err != nil {
+		return Client{}, err
+	}
+	if err := ValidatePhone(phone); err != nil {
+		return Client{}, err
+	}
+	client.Name = name
+	client.Phone = phone
+	return client, nil
 }
 
 func Cancel(now time.Time, booking Booking, class Class, eventID string) (Booking, Event, *Error) {

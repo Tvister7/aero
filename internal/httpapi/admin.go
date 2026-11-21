@@ -545,10 +545,10 @@ func (s *Server) adminStudio(w http.ResponseWriter, r *http.Request, user telegr
 // Замена контактов студии.
 //
 // @Summary Сохранить контакты
-// @Description Все пять полей обязательны. Пустая строка стирает значение.
+// @Description Все поля обязательны. Пустая строка контакта стирает значение. pricing — JSON разделов base, aero, kids и personal.
 // @Tags Админ
 // @Security TMA
-// @Param body body sqlite.Studio true "Все пять полей"
+// @Param body body sqlite.Studio true "Контакты, памятка и прайс"
 // @Success 200 {object} StudioResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody

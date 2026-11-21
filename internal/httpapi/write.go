@@ -59,7 +59,10 @@ func writeDomain(w http.ResponseWriter, err error) {
 		if status == 0 {
 			status = http.StatusBadRequest
 		}
-		message := messages[domainErr.Code]
+		message := domainErr.Message
+		if message == "" {
+			message = messages[domainErr.Code]
+		}
 		if message == "" {
 			message = messages[domain.Validation]
 		}

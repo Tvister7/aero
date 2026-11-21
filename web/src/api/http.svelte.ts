@@ -1,3 +1,4 @@
+import '../telegram'
 import type {
   ApiError,
   ClassView,
@@ -7,6 +8,7 @@ import type {
   Me,
   RosterData,
   Stats,
+  PublicTrainer,
   StudioProfile,
   TrainingType,
   Trainer,
@@ -56,6 +58,8 @@ const emptyStudio: StudioProfile = {
   instagram_url: '',
   contact_url: '',
   map_url: '',
+  guide: '',
+  pricing: '',
 }
 
 function base(): string {
@@ -162,6 +166,18 @@ export function roleSwitchVisible() {
 export function setPreviewAdmin(_value: boolean): void {}
 
 export function setPreviewRole(_role: 'client' | 'trainer' | 'admin'): void {}
+
+export function listPublicTrainers() {
+  return readList<PublicTrainer>('public-trainers', '/trainers')
+}
+
+export function getPublicTrainer(id: string) {
+  const value = cached('public-trainer:' + id, () => request('GET', `/trainers/${id}`))
+  const data = dataOf<PublicTrainer>(value)
+  if (data) return { ok: true as const, data, pending: false }
+  if (value && !succeeded(value)) return { ...asError(value), pending: false }
+  return { ok: false as const, error_code: 'VALIDATION' as const, message: '', pending: value === null }
+}
 
 export function getStudio() {
   const value = cached('studio', () => request('GET', '/studio'))
@@ -529,12 +545,3 @@ export function todayRoster(): RosterData[] {
     return roster.ok ? [roster.data] : []
   })
 }
-
-declare global {
-  interface Window {
-    Telegram?: { WebApp?: { initData?: string; ready?: () => void; disableVerticalSwipes?: () => void } }
-  }
-}
-
-window.Telegram?.WebApp?.ready?.()
-window.Telegram?.WebApp?.disableVerticalSwipes?.()

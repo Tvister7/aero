@@ -847,14 +847,14 @@ const docTemplate = `{
                         "TMA": []
                     }
                 ],
-                "description": "Все пять полей обязательны. Пустая строка стирает значение.",
+                "description": "Все поля обязательны. Пустая строка контакта стирает значение. pricing — JSON разделов base, aero, kids и personal.",
                 "tags": [
                     "Админ"
                 ],
                 "summary": "Сохранить контакты",
                 "parameters": [
                     {
-                        "description": "Все пять полей",
+                        "description": "Контакты, памятка и прайс",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -1892,7 +1892,7 @@ const docTemplate = `{
                         "TMA": []
                     }
                 ],
-                "description": "Баланс не меняется. Пустые имя и телефон не стирают сохранённые. Ник берётся из initData.",
+                "description": "Баланс не меняется. Пустые имя и телефон не стирают сохранённые. Ник берётся из initData. Первая запись клиента отправляет ему ссылку, как найти студию, и сообщение каждому администратору.",
                 "tags": [
                     "Клиент"
                 ],
@@ -1993,7 +1993,7 @@ const docTemplate = `{
                         "TMA": []
                     }
                 ],
-                "description": "Пустые имя и телефон уже сохранённые значения не стирают.",
+                "description": "Пустая строка стирает сохранённое имя или телефон. Непустое имя — буквы, пробел, дефис и апостроф. Непустой телефон — цифры, пробел, +, скобки и дефис, не меньше 9 цифр.",
                 "tags": [
                     "Клиент"
                 ],
@@ -2286,7 +2286,7 @@ const docTemplate = `{
                         "TMA": []
                     }
                 ],
-                "description": "Адрес, телефон и ссылки. Пустая строка — поле не заполнено.",
+                "description": "Адрес, телефон, ссылки, памятка и прайс. Пустая строка контакта — поле не заполнено.",
                 "tags": [
                     "Клиент"
                 ],
@@ -2993,6 +2993,88 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/trainers": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "description": "Только активные. Телефон пуст, если контакт не заполнен. classes — названия активных шаблонов.",
+                "tags": [
+                    "Клиент"
+                ],
+                "summary": "Тренеры",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/PublicTrainersResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    }
+                }
+            }
+        },
+        "/trainers/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "TMA": []
+                    }
+                ],
+                "tags": [
+                    "Клиент"
+                ],
+                "summary": "Тренер",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "id тренера",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/PublicTrainerResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorBody"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/ErrorBody"
                         }
@@ -3741,7 +3823,7 @@ const docTemplate = `{
             }
         },
         "ProfileInput": {
-            "description": "Имя и телефон. Пустая строка и отсутствие поля не стирают сохранённое значение. Ник из этого объекта не читается: он берётся из initData.",
+            "description": "Имя и телефон. Пустая строка стирает сохранённое значение. Ник из этого объекта не читается: он берётся из initData.",
             "type": "object",
             "properties": {
                 "name": {
@@ -3751,6 +3833,66 @@ const docTemplate = `{
                 "phone": {
                     "type": "string",
                     "example": "+995555000000"
+                }
+            }
+        },
+        "PublicTrainer": {
+            "description": "Карточка тренера для клиента. Telegram id сюда не входит.",
+            "type": "object",
+            "properties": {
+                "about": {
+                    "type": "string",
+                    "example": "Йога и растяжка"
+                },
+                "classes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "Aero Yoga"
+                    ]
+                },
+                "id": {
+                    "type": "string",
+                    "example": "6ba7b811-9dad-11d1-80b4-00c04fd430c8"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Лилия"
+                },
+                "phone": {
+                    "type": "string",
+                    "example": "+995555000000"
+                }
+            }
+        },
+        "PublicTrainerResponse": {
+            "description": "Одна публичная карточка тренера.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/PublicTrainer"
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "PublicTrainersResponse": {
+            "description": "Список активных тренеров.",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/PublicTrainer"
+                    }
+                },
+                "ok": {
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },
@@ -3895,7 +4037,7 @@ const docTemplate = `{
             }
         },
         "Studio": {
-            "description": "Контакты. Пустая строка значит «не заполнено». В PUT нужны все пять полей.",
+            "description": "Контакты, памятка и прайс. Пустая строка контакта значит «не заполнено». pricing — JSON-объект разделов base, aero, kids и personal. В PUT нужны все поля.",
             "type": "object",
             "properties": {
                 "address": {
@@ -3905,6 +4047,10 @@ const docTemplate = `{
                 "contact_url": {
                     "type": "string",
                     "example": "https://t.me/aero"
+                },
+                "guide": {
+                    "type": "string",
+                    "example": "Как нас найти"
                 },
                 "instagram_url": {
                     "type": "string",
@@ -3917,6 +4063,10 @@ const docTemplate = `{
                 "phone": {
                     "type": "string",
                     "example": "+995555000000"
+                },
+                "pricing": {
+                    "type": "string",
+                    "example": "{\"base\":{\"1\":35}}"
                 }
             }
         },

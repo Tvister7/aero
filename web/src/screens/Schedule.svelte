@@ -2,7 +2,7 @@
   import { onDestroy, tick } from 'svelte'
   import { getAdminSchedule, getSchedule } from '../api'
   import { shownColor } from '../lib/color'
-  import { priceLabel } from '../lib/text'
+  import { singlePrice } from '../lib/text'
   import {
     addDays,
     dateKeyOfIso,
@@ -118,15 +118,15 @@
   </div>
   {#if mode === 'week'}
     <div class="pager">
-      <button class="ghost" type="button" onclick={() => step(-1)}>Назад</button>
+      <button class="ghost" type="button" aria-label="Предыдущая неделя" onclick={() => step(-1)}>←</button>
       <span class="muted" data-testid="week-range">{formatWeekRange(start, end)}</span>
-      <button class="ghost" type="button" onclick={() => step(1)}>Дальше</button>
+      <button class="ghost" type="button" aria-label="Следующая неделя" onclick={() => step(1)}>→</button>
     </div>
   {:else}
     <div class="pager">
-      <button class="ghost" type="button" onclick={() => step(-1)}>Назад</button>
+      <button class="ghost" type="button" aria-label="Предыдущий месяц" onclick={() => step(-1)}>←</button>
       <span class="muted" data-testid="month-title">{monthTitle(month)}</span>
-      <button class="ghost" type="button" onclick={() => step(1)}>Дальше</button>
+      <button class="ghost" type="button" aria-label="Следующий месяц" onclick={() => step(1)}>→</button>
     </div>
   {/if}
 </div>
@@ -141,11 +141,8 @@
     {#if items.length > 0 || day === openedDay}
     <h2 class="day" id="day-{day}">{formatDay(day)}</h2>
     {#each items as item (item.id)}
-      {#if !admin && item.kind === 'hold'}
-        <article class="row accent" style:border-left-color={shownColor(item.color, item.title)}>
-          {@render slot(item)}
-        </article>
-      {:else}
+      {@const begun = hoursUntil(item.starts_at) <= 0}
+      {#if admin || (item.kind !== 'hold' && !begun)}
         <a
           class="row accent"
           style:border-left-color={shownColor(item.color, item.title)}
@@ -154,6 +151,10 @@
         >
           {@render slot(item)}
         </a>
+      {:else}
+        <article class="row accent" class:past={begun} style:border-left-color={shownColor(item.color, item.title)}>
+          {@render slot(item)}
+        </article>
       {/if}
     {:else}
       <p class="card muted">В этот день занятий нет.</p>
@@ -200,8 +201,8 @@
   {#if item.kind !== 'hold'}
     <span class="meta">свободно {item.free_places} из {item.capacity}</span>
   {/if}
-  {#if priceLabel(item.price_min, item.price_max)}
-    <span class="price">{priceLabel(item.price_min, item.price_max)}</span>
+  {#if singlePrice(item.price_max)}
+    <span class="price">{singlePrice(item.price_max)}</span>
   {/if}
   {#if item.status === 'cancelled'}
     <span class="tag">отменено</span>

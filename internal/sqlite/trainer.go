@@ -250,6 +250,9 @@ func (d *DB) PatchOwnTrainer(ctx context.Context, id, about, phone string) (Trai
 	if len([]rune(about)) > 500 {
 		return Trainer{}, domain.Fail(domain.Validation)
 	}
+	if err := domain.ValidatePhone(phone); err != nil {
+		return Trainer{}, err
+	}
 	var item Trainer
 	err := d.write(ctx, func(tx *sql.Tx) error {
 		current, err := trainerByID(ctx, tx, id)
@@ -363,4 +366,84 @@ func (d *DB) TrainerStats(ctx context.Context, trainerID, from, to string) (Trai
 		return TrainerStats{}, err
 	}
 	return stats, nil
+}
+
+func (d *DB) PublicTrainers(ctx context.Context) ([]PublicTrainer, error) {
+	rows, err := d.sql.QueryContext(ctx, `
+		select id, name, about, phone from trainers where active = 1 order by name, id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []PublicTrainer{}
+	for rows.Next() {
+		var item PublicTrainer
+		if err := rows.Scan(&item.ID, &item.Name, &item.About, &item.Phone); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return d.attachTrainerClasses(ctx, out)
+}
+
+func (d *DB) PublicTrainer(ctx context.Context, id string) (PublicTrainer, error) {
+	var item PublicTrainer
+	err := d.sql.QueryRowContext(ctx, `
+		select id, name, about, phone from trainers where id = ? and active = 1`, id).
+		Scan(&item.ID, &item.Name, &item.About, &item.Phone)
+	if errors.Is(err, sql.ErrNoRows) {
+		return PublicTrainer{}, domain.FailMessage(domain.Validation, "Тренер не найден")
+	}
+	if err != nil {
+		return PublicTrainer{}, err
+	}
+	list, err := d.attachTrainerClasses(ctx, []PublicTrainer{item})
+	if err != nil {
+		return PublicTrainer{}, err
+	}
+	if len(list) == 0 {
+		return PublicTrainer{}, domain.FailMessage(domain.Validation, "Тренер не найден")
+	}
+	return list[0], nil
+}
+
+func (d *DB) attachTrainerClasses(ctx context.Context, trainers []PublicTrainer) ([]PublicTrainer, error) {
+	if len(trainers) == 0 {
+		return trainers, nil
+	}
+	rows, err := d.sql.QueryContext(ctx, `
+		select trainer_id, title from class_templates where active = 1 order by title, id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	titles := map[string][]string{}
+	seen := map[string]map[string]bool{}
+	for rows.Next() {
+		var trainerID, title string
+		if err := rows.Scan(&trainerID, &title); err != nil {
+			return nil, err
+		}
+		if seen[trainerID] == nil {
+			seen[trainerID] = map[string]bool{}
+		}
+		if seen[trainerID][title] {
+			continue
+		}
+		seen[trainerID][title] = true
+		titles[trainerID] = append(titles[trainerID], title)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for i := range trainers {
+		trainers[i].Classes = titles[trainers[i].ID]
+		if trainers[i].Classes == nil {
+			trainers[i].Classes = []string{}
+		}
+	}
+	return trainers, nil
 }

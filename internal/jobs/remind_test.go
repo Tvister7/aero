@@ -38,7 +38,7 @@ func TestFailedReminderStaysPending(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	booked, err := db.Book(context.Background(), now, sqlite.User{TelegramID: 1001, Username: "anna"}, class.ID, "Анна", "+995")
+	booked, err := db.Book(context.Background(), now, sqlite.User{TelegramID: 1001, Username: "anna"}, class.ID, "Анна", "+995555000000")
 	if err != nil {
 		t.Fatal(err)
 	}

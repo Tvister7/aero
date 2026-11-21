@@ -77,6 +77,9 @@ func (d *DB) migrate(ctx context.Context) error {
 		if err := ensureTrainerColumns(ctx, tx); err != nil {
 			return err
 		}
+		if err := ensureStudioColumns(ctx, tx); err != nil {
+			return err
+		}
 		return ensureTypeColors(ctx, tx)
 	})
 }

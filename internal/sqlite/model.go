@@ -117,8 +117,12 @@ type IndividualInput struct {
 type BookOutcome struct {
 	BookingID string `json:"booking_id" example:"6ba7b814-9dad-11d1-80b4-00c04fd430c8"`
 	// Баланс в занятиях после вызова. Сама запись баланс не меняет.
-	Balance int       `json:"balance" example:"4"`
-	Class   ClassView `json:"class"`
+	Balance     int       `json:"balance" example:"4"`
+	Class       ClassView `json:"class"`
+	First       bool      `json:"-"`
+	ClientName  string    `json:"-"`
+	ClientPhone string    `json:"-"`
+	Username    string    `json:"-"`
 }
 
 // MyBooking будущая запись клиента.
@@ -215,14 +219,28 @@ type Stats struct {
 	UnpaidVisits      int    `json:"unpaid_visits" example:"5"`
 }
 
-// Studio контакты. Пустая строка значит «не заполнено». В PUT нужны все пять полей.
-// @Description Контакты. Пустая строка значит «не заполнено». В PUT нужны все пять полей.
+// Studio контакты, памятка и прайс. Пустая строка контакта значит «не заполнено».
+// pricing — JSON-объект разделов base, aero, kids и personal.
+// В PUT нужны все поля.
+// @Description Контакты, памятка и прайс. Пустая строка контакта значит «не заполнено». pricing — JSON-объект разделов base, aero, kids и personal. В PUT нужны все поля.
 type Studio struct {
 	Address      string `json:"address" example:"ул. Пример, 1"`
 	Phone        string `json:"phone" example:"+995555000000"`
 	InstagramURL string `json:"instagram_url" example:"https://instagram.com/aero"`
 	ContactURL   string `json:"contact_url" example:"https://t.me/aero"`
 	MapURL       string `json:"map_url" example:"https://maps.example/aero"`
+	Guide        string `json:"guide" example:"Как нас найти"`
+	Pricing      string `json:"pricing" example:"{\"base\":{\"1\":35}}"`
+}
+
+// PublicTrainer карточка тренера для клиента. Telegram id сюда не входит.
+// @Description Карточка тренера для клиента. Telegram id сюда не входит.
+type PublicTrainer struct {
+	ID      string   `json:"id" example:"6ba7b811-9dad-11d1-80b4-00c04fd430c8"`
+	Name    string   `json:"name" example:"Лилия"`
+	About   string   `json:"about" example:"Йога и растяжка"`
+	Phone   string   `json:"phone" example:"+995555000000"`
+	Classes []string `json:"classes" example:"Aero Yoga"`
 }
 
 // RosterBooking одна запись в журнале занятия. attendance равен null, пока явку не поставили.

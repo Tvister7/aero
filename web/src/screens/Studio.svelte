@@ -12,3 +12,6 @@
   {#if studio.contact_url}<p><a href={studio.contact_url}>Контакт</a></p>{/if}
   {#if studio.map_url}<p><a href={studio.map_url}>Карта</a></p>{/if}
 </article>
+<a class="row" href="#/studio/guide">Как нас найти</a>
+<a class="row" href="#/studio/prices">Цены</a>
+<a class="row" href="#/studio/trainers">Тренеры</a>

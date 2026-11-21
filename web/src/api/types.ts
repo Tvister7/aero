@@ -31,6 +31,16 @@ export type StudioProfile = {
   instagram_url: string
   contact_url: string
   map_url: string
+  guide: string
+  pricing: string
+}
+
+export type PublicTrainer = {
+  id: string
+  name: string
+  about: string
+  phone: string
+  classes: string[]
 }
 
 export type Trainer = {

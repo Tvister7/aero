@@ -134,7 +134,9 @@ create table if not exists studio (
   phone text not null default '',
   instagram_url text not null default '',
   contact_url text not null default '',
-  map_url text not null default ''
+  map_url text not null default '',
+  guide text not null default '',
+  pricing text not null default ''
 );
 
 insert into studio (id, address, phone, instagram_url, contact_url, map_url)

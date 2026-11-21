@@ -1,7 +1,7 @@
 <script lang="ts">
   import { bookClass, getClass, getMe } from '../api'
-  import { formatWhen } from '../lib/time'
-  import { balanceText, priceLabel } from '../lib/text'
+  import { formatWhen, hoursUntil } from '../lib/time'
+  import { balanceText, singlePrice } from '../lib/text'
 
   let { classId }: { classId: string } = $props()
   let card = $derived(getClass(classId))
@@ -41,15 +41,17 @@
     {#if card.data.kind === 'hold'}<p class="muted">Запись на это время не открыта.</p>{/if}
     {#if card.data.trainer.name}<p class="meta">{card.data.trainer.name}</p>{/if}
     {#if card.data.kind !== 'hold'}<p>свободно {card.data.free_places} из {card.data.capacity}</p>{/if}
-    {#if priceLabel(card.data.price_min, card.data.price_max)}
-      <p class="price">стоимость {priceLabel(card.data.price_min, card.data.price_max)}</p>
+    {#if singlePrice(card.data.price_max)}
+      <p class="price">стоимость {singlePrice(card.data.price_max)}</p>
     {/if}
     {#if me.data.visited && me.data.balance <= 0}
       <p data-testid="empty-balance">На балансе нет занятий.</p>
     {/if}
   </article>
 
-  {#if card.data.kind === 'group'}
+  {#if card.data.kind === 'group' && hoursUntil(card.data.starts_at) <= 0}
+    <p class="card muted">Занятие уже началось.</p>
+  {:else if card.data.kind === 'group'}
   <form class="card" onsubmit={submit}>
     <label for="name">Имя</label>
     <input id="name" bind:value={name} autocomplete="name" />
