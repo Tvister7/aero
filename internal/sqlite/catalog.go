@@ -77,7 +77,11 @@ func applyTrainerPatch(ctx context.Context, q querier, id string, patch TrainerF
 		}
 	}
 	if patch.Phone != nil {
-		current.Phone = strings.TrimSpace(*patch.Phone)
+		phone := strings.TrimSpace(*patch.Phone)
+		if err := domain.ValidatePhone(phone); err != nil {
+			return Trainer{}, err
+		}
+		current.Phone = phone
 	}
 	if patch.TelegramUserID != nil {
 		current.TelegramUserID = strings.TrimSpace(*patch.TelegramUserID)
@@ -383,17 +387,28 @@ func fmtClock(value int) string {
 
 func (d *DB) Studio(ctx context.Context) (Studio, error) {
 	var studio Studio
-	err := d.sql.QueryRowContext(ctx, `select address, phone, instagram_url, contact_url, map_url from studio where id = 1`).
-		Scan(&studio.Address, &studio.Phone, &studio.InstagramURL, &studio.ContactURL, &studio.MapURL)
+	err := d.sql.QueryRowContext(ctx, `
+		select address, phone, instagram_url, contact_url, map_url, guide, pricing from studio where id = 1`).
+		Scan(&studio.Address, &studio.Phone, &studio.InstagramURL, &studio.ContactURL, &studio.MapURL, &studio.Guide, &studio.Pricing)
 	return studio, err
 }
 
 func (d *DB) PutStudio(ctx context.Context, studio Studio) (Studio, error) {
-	err := d.write(ctx, func(tx *sql.Tx) error {
+	guide, err := domain.NormalizeGuide(studio.Guide)
+	if err != nil {
+		return Studio{}, err
+	}
+	pricing, err := domain.NormalizePricing(studio.Pricing)
+	if err != nil {
+		return Studio{}, err
+	}
+	studio.Guide = guide
+	studio.Pricing = pricing
+	writeErr := d.write(ctx, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			update studio set address = ?, phone = ?, instagram_url = ?, contact_url = ?, map_url = ? where id = 1`,
-			studio.Address, studio.Phone, studio.InstagramURL, studio.ContactURL, studio.MapURL)
+			update studio set address = ?, phone = ?, instagram_url = ?, contact_url = ?, map_url = ?, guide = ?, pricing = ? where id = 1`,
+			studio.Address, studio.Phone, studio.InstagramURL, studio.ContactURL, studio.MapURL, studio.Guide, studio.Pricing)
 		return err
 	})
-	return studio, err
+	return studio, writeErr
 }

@@ -11,7 +11,7 @@ import (
 // Контакты студии.
 //
 // @Summary Контакты студии
-// @Description Адрес, телефон и ссылки. Пустая строка — поле не заполнено.
+// @Description Адрес, телефон, ссылки, памятка и прайс. Пустая строка контакта — поле не заполнено.
 // @Tags Клиент
 // @Security TMA
 // @Success 200 {object} StudioResponse
@@ -75,7 +75,7 @@ func (s *Server) class(w http.ResponseWriter, r *http.Request, _ telegram.User) 
 // Запись на занятие.
 //
 // @Summary Записаться
-// @Description Баланс не меняется. Пустые имя и телефон не стирают сохранённые. Ник берётся из initData.
+// @Description Баланс не меняется. Пустые имя и телефон не стирают сохранённые. Ник берётся из initData. Первая запись клиента отправляет ему ссылку, как найти студию, и сообщение каждому администратору.
 // @Tags Клиент
 // @Security TMA
 // @Param id path string true "Идентификатор занятия"
@@ -96,6 +96,9 @@ func (s *Server) book(w http.ResponseWriter, r *http.Request, user telegram.User
 	out, err := s.DB.Book(r.Context(), s.now(), asUser(user), r.PathValue("id"), body.Name, body.Phone)
 	if finish(w, err) {
 		return
+	}
+	if out.First {
+		s.notifyFirstBooking(r.Context(), user.ID, out)
 	}
 	writeOK(w, map[string]any{"booking_id": out.BookingID, "balance": out.Balance, "class": out.Class})
 }
@@ -122,7 +125,7 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request, user telegram.User) 
 // Правка имени и телефона.
 //
 // @Summary Изменить профиль
-// @Description Пустые имя и телефон уже сохранённые значения не стирают.
+// @Description Пустая строка стирает сохранённое имя или телефон. Непустое имя — буквы, пробел, дефис и апостроф. Непустой телефон — цифры, пробел, +, скобки и дефис, не меньше 9 цифр.
 // @Tags Клиент
 // @Security TMA
 // @Param body body ProfileInput false "Можно прислать пустое тело"
@@ -288,4 +291,41 @@ func (s *Server) putEnrollments(w http.ResponseWriter, r *http.Request, user tel
 		return
 	}
 	writeOK(w, map[string]any{"data": data})
+}
+
+// Активные тренеры для клиента.
+//
+// @Summary Тренеры
+// @Description Только активные. Телефон пуст, если контакт не заполнен. classes — названия активных шаблонов.
+// @Tags Клиент
+// @Security TMA
+// @Success 200 {object} PublicTrainersResponse
+// @Failure 401 {object} ErrorBody
+// @Failure 500 {object} ErrorBody
+// @Router /trainers [get]
+func (s *Server) publicTrainers(w http.ResponseWriter, r *http.Request, _ telegram.User) {
+	data, err := s.DB.PublicTrainers(r.Context())
+	if finish(w, err) {
+		return
+	}
+	writeOK(w, map[string]any{"data": data})
+}
+
+// Карточка активного тренера.
+//
+// @Summary Тренер
+// @Tags Клиент
+// @Security TMA
+// @Param id path string true "id тренера"
+// @Success 200 {object} PublicTrainerResponse
+// @Failure 400 {object} ErrorBody
+// @Failure 401 {object} ErrorBody
+// @Failure 500 {object} ErrorBody
+// @Router /trainers/{id} [get]
+func (s *Server) publicTrainer(w http.ResponseWriter, r *http.Request, _ telegram.User) {
+	item, err := s.DB.PublicTrainer(r.Context(), r.PathValue("id"))
+	if finish(w, err) {
+		return
+	}
+	writeOK(w, map[string]any{"data": item})
 }

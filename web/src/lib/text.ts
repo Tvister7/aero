@@ -18,6 +18,13 @@ export function policyText(policy: BookingPolicy): string {
   return policy === 'restricted' ? 'абонемент' : 'постоплата'
 }
 
+export function singlePrice(max: string): string {
+  const value = Number(max)
+  if (!value) return ''
+  const amount = Number.isInteger(value) ? String(value) : max
+  return `${amount} ₾`
+}
+
 export function priceLabel(min: string, max: string): string {
   const left = Number(min)
   const right = Number(max)

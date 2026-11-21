@@ -11,7 +11,7 @@ func TestTypeColorStaysWithTheType(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
 	yoga := makeType(t, db, now, "Aero Yoga")
-	if yoga.Color != "#5c7a3a" {
+	if yoga.Color != "#4d7c0f" {
 		t.Fatalf("yoga color %s", yoga.Color)
 	}
 	pilates := makeType(t, db, now, "Пилатес")

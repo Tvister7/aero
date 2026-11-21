@@ -5,18 +5,30 @@ import "context"
 // Порядок совпадает с web/src/lib/color.ts. Новый тип получает первый свободный
 // цвет и хранит его. Скрытие или удаление другого типа этот цвет не меняет.
 var typePalette = []string{
-	"#3a7ca5", "#d46a3a", "#2f8f6b", "#7a5ea7", "#c43d5a", "#b8860b", "#3d6b8c", "#5c7a3a",
+	"#1d4ed8", "#c2410c", "#047857", "#7c3aed", "#be123c", "#a16207", "#0e7490", "#4d7c0f",
 }
 
-// Цвета, которые уже видят в расписании. Нужны только чтобы заполнить старые строки
-// без цвета. Новое название сюда не добавляется: ему хватает свободного цвета палитры.
+// Старые цвета слишком близки друг к другу. При запуске они заменяются на новую палитру.
+var paletteUpgrade = map[string]string{
+	"#3a7ca5": "#1d4ed8",
+	"#d46a3a": "#c2410c",
+	"#2f8f6b": "#047857",
+	"#7a5ea7": "#7c3aed",
+	"#c43d5a": "#be123c",
+	"#b8860b": "#a16207",
+	"#3d6b8c": "#0e7490",
+	"#5c7a3a": "#4d7c0f",
+}
+
+// Цвета известных названий. Нужны только чтобы заполнить старые строки без цвета.
+// Новое название сюда не добавляется: ему хватает свободного цвета палитры.
 var keptTypeColors = map[string]string{
-	"K-POP KIDS (Dance)": "#3a7ca5",
-	"HIGH HEELS":         "#d46a3a",
-	"Aero Stretching":    "#c43d5a",
-	"K-POP 16+":          "#b8860b",
-	"DYNAMIC STRETCHING": "#3d6b8c",
-	"Aero Yoga":          "#5c7a3a",
+	"K-POP KIDS (Dance)": "#1d4ed8",
+	"HIGH HEELS":         "#c2410c",
+	"Aero Stretching":    "#be123c",
+	"K-POP 16+":          "#7c3aed",
+	"DYNAMIC STRETCHING": "#0e7490",
+	"Aero Yoga":          "#4d7c0f",
 }
 
 func ensureTrainerColumns(ctx context.Context, q querier) error {
@@ -52,13 +64,19 @@ func ensureTypeColors(ctx context.Context, q querier) error {
 		return err
 	}
 	type blankType struct{ id, title string }
+	type recolor struct{ id, color string }
 	used := map[string]bool{}
 	var blank []blankType
+	var upgrades []recolor
 	for rows.Next() {
 		var id, title, color string
 		if err := rows.Scan(&id, &title, &color); err != nil {
 			rows.Close()
 			return err
+		}
+		if next, ok := paletteUpgrade[color]; ok {
+			upgrades = append(upgrades, recolor{id, next})
+			color = next
 		}
 		if color != "" {
 			used[color] = true
@@ -71,6 +89,11 @@ func ensureTypeColors(ctx context.Context, q querier) error {
 		return err
 	}
 	rows.Close()
+	for _, row := range upgrades {
+		if err := setTypeColor(ctx, q, row.id, row.color); err != nil {
+			return err
+		}
+	}
 	var rest []blankType
 	for _, row := range blank {
 		color, ok := keptTypeColors[row.title]

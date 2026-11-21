@@ -14,6 +14,10 @@
   import Stats from './screens/Stats.svelte'
   import Studio from './screens/Studio.svelte'
   import StudioEdit from './screens/StudioEdit.svelte'
+  import StudioGuide from './screens/StudioGuide.svelte'
+  import StudioPrices from './screens/StudioPrices.svelte'
+  import StudioTrainer from './screens/StudioTrainer.svelte'
+  import StudioTrainers from './screens/StudioTrainers.svelte'
   import Templates from './screens/Templates.svelte'
   import TrainerCard from './screens/TrainerCard.svelte'
   import TrainerHome from './screens/TrainerHome.svelte'
@@ -23,13 +27,24 @@
 
   let hash = $state(window.location.hash || '#/')
 
+  let backTarget = ''
+  let inTelegram = $state(false)
+
   onMount(() => {
     ping()
+    inTelegram = Boolean(window.Telegram?.WebApp?.initData)
+    const goBack = () => {
+      if (backTarget) location.hash = backTarget
+    }
+    if (inTelegram) window.Telegram?.WebApp?.BackButton?.onClick(goBack)
     const sync = () => {
       hash = window.location.hash || '#/'
     }
     window.addEventListener('hashchange', sync)
-    return () => window.removeEventListener('hashchange', sync)
+    return () => {
+      if (inTelegram) window.Telegram?.WebApp?.BackButton?.offClick(goBack)
+      window.removeEventListener('hashchange', sync)
+    }
   })
 
   type Role = 'client' | 'trainer' | 'admin'
@@ -42,6 +57,10 @@
     if (head === 'bookings') return { name: 'bookings' }
     if (head === 'profile') return { name: 'profile' }
     if (head === 'visits') return { name: 'visits' }
+    if (head === 'studio' && parts[1] === 'guide') return { name: 'studio-guide' }
+    if (head === 'studio' && parts[1] === 'prices') return { name: 'studio-prices' }
+    if (head === 'studio' && parts[1] === 'trainers' && parts[2]) return { name: 'studio-trainer', id: parts[2] }
+    if (head === 'studio' && parts[1] === 'trainers') return { name: 'studio-trainers' }
     if (head === 'studio') return { name: 'studio' }
     if (head === 'trainer') return { name: 'trainer', area: 'trainer' }
     if (head !== 'admin') return { name: 'schedule' }
@@ -97,11 +116,21 @@
   let back = $derived.by(() => {
     if (route.name === 'visits') return '#/profile'
     if (route.name === 'class') return '#/'
+    if (route.name === 'studio-guide' || route.name === 'studio-prices' || route.name === 'studio-trainers') return '#/studio'
+    if (route.name === 'studio-trainer') return '#/studio/trainers'
     if (route.name === 'admin-class') return '#/admin/schedule'
     if (route.name === 'client') return '#/admin/clients'
     if (route.name === 'admin-trainer') return '#/admin/trainers'
     if (route.name.startsWith('admin-')) return '#/admin'
     return ''
+  })
+
+  $effect(() => {
+    backTarget = back
+    const button = window.Telegram?.WebApp?.BackButton
+    if (!inTelegram || !button) return
+    if (back) button.show()
+    else button.hide()
   })
 
   function choose(next: Role) {
@@ -113,11 +142,7 @@
 
 <div class="shell">
   <header class="top" bind:this={header}>
-    {#if back}
-      <a class="back" href={back}>Назад</a>
-    {:else}
-      <p class="brand">aero.ge</p>
-    {/if}
+    <p class="brand">aero.ge</p>
     {#if showSwitch}
       <div class="switch">
         {#if showClient}<button type="button" aria-pressed={role === 'client'} data-testid="role-client" onclick={() => choose('client')}>Клиент</button>{/if}
@@ -128,6 +153,7 @@
   </header>
 
   <main class="page">
+    {#if back && !inTelegram}<a class="page-back" href={back}>Назад</a>{/if}
     {#if route.name === 'schedule'}
       <Schedule />
     {:else if route.name === 'class'}
@@ -140,6 +166,14 @@
       <Visits />
     {:else if route.name === 'studio'}
       <Studio />
+    {:else if route.name === 'studio-guide'}
+      <StudioGuide />
+    {:else if route.name === 'studio-prices'}
+      <StudioPrices />
+    {:else if route.name === 'studio-trainers'}
+      <StudioTrainers />
+    {:else if route.name === 'studio-trainer'}
+      <StudioTrainer trainerId={route.id ?? ''} />
     {:else if route.name === 'admin'}
       <AdminMenu />
     {:else if route.name === 'admin-roster'}
@@ -183,7 +217,7 @@
       <a href="#/" class:active={route.name === 'schedule' || route.name === 'class'}>Расписание</a>
       <a href="#/bookings" class:active={route.name === 'bookings'}>Записи</a>
       <a href="#/profile" class:active={route.name === 'profile'}>Профиль</a>
-      <a href="#/studio" class:active={route.name === 'studio'}>Студия</a>
+      <a href="#/studio" class:active={route.name === 'studio' || route.name.startsWith('studio-')}>Студия</a>
     {/if}
   </nav>
 </div>

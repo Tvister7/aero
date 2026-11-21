@@ -18,7 +18,8 @@ const (
 )
 
 type Error struct {
-	Code string
+	Code    string
+	Message string
 }
 
 func (e *Error) Error() string {
@@ -30,4 +31,8 @@ func (e *Error) Error() string {
 
 func Fail(code string) *Error {
 	return &Error{Code: code}
+}
+
+func FailMessage(code, message string) *Error {
+	return &Error{Code: code, Message: message}
 }

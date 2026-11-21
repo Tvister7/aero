@@ -26,10 +26,12 @@
     })
   })
   let enrollError = $state('')
+  let error = $state('')
 
   async function save(event: SubmitEvent) {
     event.preventDefault()
-    await patchMe({ name, phone })
+    const response = await patchMe({ name, phone })
+    error = response.ok ? '' : response.message
   }
 
   async function setEnrolled(id: string, on: boolean) {
@@ -60,6 +62,7 @@
   <label for="profile-phone">Телефон</label>
   <input id="profile-phone" bind:value={phone} />
   <button class="primary" type="submit">Сохранить</button>
+  {#if error}<p class="error">{error}</p>{/if}
 </form>
 
 <section>

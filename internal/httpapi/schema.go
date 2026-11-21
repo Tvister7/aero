@@ -20,9 +20,9 @@ type ErrorBody struct {
 	Message   string `json:"message" example:"Занятия на балансе закончились"`
 }
 
-// ProfileInput имя и телефон. Пустая строка и отсутствие поля не стирают сохранённое значение.
+// ProfileInput имя и телефон. Пустая строка стирает сохранённое значение.
 // Ник из этого объекта не читается: он берётся из initData.
-// @Description Имя и телефон. Пустая строка и отсутствие поля не стирают сохранённое значение. Ник из этого объекта не читается: он берётся из initData.
+// @Description Имя и телефон. Пустая строка стирает сохранённое значение. Ник из этого объекта не читается: он берётся из initData.
 type ProfileInput struct {
 	Name  string `json:"name" example:"Анна"`
 	Phone string `json:"phone" example:"+995555000000"`
@@ -90,6 +90,20 @@ type ClassResponse struct {
 type ClassesResponse struct {
 	OK   bool               `json:"ok" example:"true"`
 	Data []sqlite.ClassView `json:"data"`
+}
+
+// PublicTrainersResponse список активных тренеров.
+// @Description Список активных тренеров.
+type PublicTrainersResponse struct {
+	OK   bool                   `json:"ok" example:"true"`
+	Data []sqlite.PublicTrainer `json:"data"`
+}
+
+// PublicTrainerResponse одна публичная карточка тренера.
+// @Description Одна публичная карточка тренера.
+type PublicTrainerResponse struct {
+	OK   bool                 `json:"ok" example:"true"`
+	Data sqlite.PublicTrainer `json:"data"`
 }
 
 // ClientNamesResponse короткие имена для выбора клиента.

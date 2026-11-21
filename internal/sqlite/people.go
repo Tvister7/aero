@@ -51,7 +51,11 @@ func (d *DB) PatchMe(ctx context.Context, now time.Time, user User, name, phone 
 		if err != nil {
 			return err
 		}
-		client = domain.MergeProfile(client, name, phone)
+		updated, profileErr := domain.MergeProfile(client, name, phone)
+		if profileErr != nil {
+			return profileErr
+		}
+		client = updated
 		if err := updateClient(ctx, tx, now, client); err != nil {
 			return err
 		}

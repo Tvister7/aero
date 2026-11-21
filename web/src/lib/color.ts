@@ -1,4 +1,4 @@
-const PALETTE = ['#3a7ca5', '#d46a3a', '#2f8f6b', '#7a5ea7', '#c43d5a', '#b8860b', '#3d6b8c', '#5c7a3a']
+const PALETTE = ['#1d4ed8', '#c2410c', '#047857', '#7c3aed', '#be123c', '#a16207', '#0e7490', '#4d7c0f']
 
 function hash(title: string): number {
   let value = 0

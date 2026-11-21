@@ -15,9 +15,13 @@
 
 * { box-sizing: border-box; }
 
+html, body {
+  background: var(--mist);
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
-  background: var(--ink);
 }
 
 button, input, select, textarea {
@@ -28,11 +32,13 @@ button, input, select, textarea {
 a { color: var(--blue); }
 
 .shell {
-  width: min(480px, 100%);
-  min-height: 100dvh;
+  width: 100%;
+  max-width: 480px;
+  min-height: var(--app-h, 100dvh);
   margin: 0 auto;
   background: var(--mist);
   padding-bottom: 108px;
+  overflow-x: hidden;
 }
 
 .top {
@@ -54,13 +60,12 @@ a { color: var(--blue); }
   letter-spacing: 0.04em;
 }
 
-.top a.back {
-  color: var(--ice);
-  text-decoration: none;
+a.page-back {
+  display: inline-block;
+  margin: 4px 24px 0;
+  color: inherit;
   font-size: 14px;
-  border: 1px solid var(--ice);
-  border-radius: 12px;
-  padding: 6px 12px;
+  text-decoration: none;
 }
 
 .switch {
@@ -100,6 +105,15 @@ a { color: var(--blue); }
 }
 
 .row strong, .card h2, .card h3 { display: block; }
+
+.row.past {
+  opacity: 0.55;
+  filter: blur(1.2px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.guide { white-space: pre-wrap; }
 
 .card > a {
   color: inherit;

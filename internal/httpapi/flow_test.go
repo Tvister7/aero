@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,18 +65,26 @@ func TestStudioFlow(t *testing.T) {
 	if me["policy"] != "postpay" || me["balance"] != float64(0) || me["username"] != "anna" || me["is_admin"] != false || me["visited"] != false {
 		t.Fatalf("me %v", me)
 	}
-	booked := callOK(t, httpServer, http.MethodPost, "/classes/"+far["id"].(string)+"/bookings", anna, map[string]string{"name": "Анна", "phone": "+995"})
+	booked := callOK(t, httpServer, http.MethodPost, "/classes/"+far["id"].(string)+"/bookings", anna, map[string]string{"name": "Анна", "phone": "+995555112233"})
 	if booked["balance"] != float64(0) || booked["class"].(map[string]any)["free_places"] != float64(5) {
 		t.Fatalf("book %v", booked)
 	}
+	if len(bot.texts) != 2 || bot.chats[0] != 1001 || bot.chats[1] != 7 ||
+		!strings.Contains(bot.texts[0], "https://aero.example/#/studio/guide") || !strings.Contains(bot.texts[0], "код от подъезда") ||
+		!strings.Contains(bot.texts[1], "Анна, @anna, +995555112233") || !strings.Contains(bot.texts[1], "Aero Stretching, 21.11 10:00") {
+		t.Fatalf("first booking %v %v", bot.chats, bot.texts)
+	}
 	soonBook := callOK(t, httpServer, http.MethodPost, "/classes/"+soon["id"].(string)+"/bookings", anna, nil)
+	if len(bot.texts) != 2 {
+		t.Fatalf("second booking notified %v", bot.texts)
+	}
 	status, body = call(t, httpServer, http.MethodPost, "/bookings/"+soonBook["booking_id"].(string)+"/cancel", anna, nil)
 	if status != http.StatusConflict || body["error_code"] != domain.CutoffExceeded {
 		t.Fatalf("cutoff %d %v", status, body)
 	}
 	var scheduler jobs.Scheduler
 	scheduler.Tick(t.Context(), db, bot, now)
-	if len(bot.texts) != 1 || bot.texts[0] == "" {
+	if len(bot.texts) != 3 || !strings.HasPrefix(bot.texts[2], "Напоминание") {
 		t.Fatalf("reminder %v", bot.texts)
 	}
 	state, err := db.ReminderState(t.Context(), soonBook["booking_id"].(string))
@@ -92,7 +101,7 @@ func TestStudioFlow(t *testing.T) {
 		t.Fatalf("capacity %d %v", status, body)
 	}
 	cancelled := data(callOK(t, httpServer, http.MethodPatch, "/admin/classes/"+soon["id"].(string), admin, map[string]any{"status": "cancelled"}))
-	if cancelled["status"] != "cancelled" || len(bot.texts) != 2 {
+	if cancelled["status"] != "cancelled" || len(bot.texts) != 4 || !strings.Contains(bot.texts[3], "отменено") {
 		t.Fatalf("cancel slot %v texts %v", cancelled, bot.texts)
 	}
 
@@ -155,12 +164,13 @@ func TestStudioFlow(t *testing.T) {
 		t.Fatalf("week repeat %v", againWeek)
 	}
 
-	profile := data(callOK(t, httpServer, http.MethodPatch, "/me", anna, map[string]any{"name": "Анна, студия"}))
-	if profile["visited"] != true || profile["name"] != "Анна, студия" {
+	profile := data(callOK(t, httpServer, http.MethodPatch, "/me", anna, map[string]any{"name": "Анна Студия"}))
+	if profile["visited"] != true || profile["name"] != "Анна Студия" {
 		t.Fatalf("visited after cleared attendance %v", profile)
 	}
 	saved := data(callOK(t, httpServer, http.MethodPut, "/admin/studio", admin, map[string]any{
 		"address": "ул. Чавчавадзе", "phone": "+995", "instagram_url": "https://instagram.com/aero", "contact_url": "", "map_url": "",
+		"guide": "Как нас найти", "pricing": `{"base":{"1":35}}`,
 	}))
 	if saved["instagram_url"] != "https://instagram.com/aero" {
 		t.Fatalf("studio %v", saved)
@@ -176,7 +186,7 @@ func TestStudioFlow(t *testing.T) {
 	}
 	csvBody, _ := io.ReadAll(csvResp.Body)
 	csvResp.Body.Close()
-	if csvResp.StatusCode != http.StatusOK || !bytes.Contains(csvBody, []byte(`"Анна, студия"`)) {
+	if csvResp.StatusCode != http.StatusOK || !bytes.Contains(csvBody, []byte("Анна Студия")) {
 		t.Fatalf("csv %d %s", csvResp.StatusCode, csvBody)
 	}
 
@@ -196,10 +206,12 @@ func TestStudioFlow(t *testing.T) {
 }
 
 type recordingBot struct {
+	chats []int64
 	texts []string
 }
 
-func (b *recordingBot) Send(_ context.Context, _ int64, text string) error {
+func (b *recordingBot) Send(_ context.Context, chat int64, text string) error {
+	b.chats = append(b.chats, chat)
 	b.texts = append(b.texts, text)
 	return nil
 }

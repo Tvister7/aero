@@ -80,6 +80,10 @@ func (d *DB) Book(ctx context.Context, now time.Time, user User, classID, name, 
 		if err := updateClient(ctx, tx, now, result.Client); err != nil {
 			return err
 		}
+		var prior int
+		if err := tx.QueryRowContext(ctx, `select count(*) from bookings where client_id = ?`, client.ID).Scan(&prior); err != nil {
+			return err
+		}
 		if err := insertBooking(ctx, tx, now, result.Booking); err != nil {
 			return err
 		}
@@ -94,7 +98,10 @@ func (d *DB) Book(ctx context.Context, now time.Time, user User, classID, name, 
 		if err != nil {
 			return err
 		}
-		out = BookOutcome{BookingID: result.Booking.ID, Balance: balance, Class: view}
+		out = BookOutcome{
+			BookingID: result.Booking.ID, Balance: balance, Class: view, First: prior == 0,
+			ClientName: result.Client.Name, ClientPhone: result.Client.Phone, Username: result.Client.Username,
+		}
 		return nil
 	})
 	return out, err

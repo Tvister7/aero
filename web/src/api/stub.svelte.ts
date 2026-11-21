@@ -13,10 +13,14 @@ import type {
   LedgerEntry,
   RosterData,
   Stats,
+  PublicTrainer,
   StudioProfile,
   TrainingType,
 } from './types'
+import { nameError, phoneError } from '../lib/contact'
 import { nextTypeColor } from '../lib/color'
+import { canonicalPricing, pricingError } from '../lib/pricing'
+import { defaultGuide, defaultPricing } from '../lib/studioDefaults'
 import { money } from '../lib/text'
 import {
   addDays,
@@ -56,6 +60,10 @@ function fail(code: ErrorCode): ApiError {
   return { ok: false, error_code: code, message: MESSAGES[code] }
 }
 
+function failMessage(message: string): ApiError {
+  return { ok: false, error_code: 'VALIDATION', message }
+}
+
 function uid(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`
 }
@@ -77,6 +85,8 @@ const db = $state<Database>({
     instagram_url: 'https://instagram.com/aero.ge',
     contact_url: 'https://t.me/aeroge',
     map_url: 'https://maps.google.com/?q=Tbilisi',
+    guide: defaultGuide,
+    pricing: defaultPricing,
   },
   absences: [],
 })
@@ -228,6 +238,10 @@ export function bookClass(id: string, body: { name?: string; phone?: string }) {
   const row = db.classes.find((item) => item.id === id && item.status === 'scheduled')
   if (!row || classKind(row) !== 'group') return fail('CLASS_NOT_FOUND')
   if (new Date(row.starts_at) <= new Date()) return fail('CLASS_STARTED')
+  const nameMessage = nameError(body.name ?? '')
+  if (body.name?.trim() && nameMessage) return failMessage(nameMessage)
+  const phoneMessage = phoneError(body.phone ?? '')
+  if (body.phone?.trim() && phoneMessage) return failMessage(phoneMessage)
   const client = devClient()
   const name = body.name?.trim() || client.name
   const phone = body.phone?.trim() || client.phone
@@ -269,9 +283,15 @@ export function getMe() {
 }
 
 export function patchMe(body: { name?: string; phone?: string }) {
+  const name = body.name ?? ''
+  const phone = body.phone ?? ''
+  const nameMessage = nameError(name)
+  if (nameMessage) return failMessage(nameMessage)
+  const phoneMessage = phoneError(phone)
+  if (phoneMessage) return failMessage(phoneMessage)
   const client = devClient()
-  if (body.name?.trim()) client.name = body.name.trim()
-  if (body.phone?.trim()) client.phone = body.phone.trim()
+  client.name = name.trim()
+  client.phone = phone.trim()
   touch()
   return getMe()
 }
@@ -393,7 +413,11 @@ export function patchTrainer(
   }
   if (typeof body.active === 'boolean') row.active = body.active
   if (body.about !== undefined) row.about = body.about.trim()
-  if (body.phone !== undefined) row.phone = body.phone.trim()
+  if (body.phone !== undefined) {
+    const message = phoneError(body.phone)
+    if (message) return failMessage(message)
+    row.phone = body.phone.trim()
+  }
   if (body.telegram_user_id !== undefined) {
     const telegram = body.telegram_user_id.trim()
     if (telegram && !db.clients.some((item) => item.telegram_id === telegram)) return fail('VALIDATION')
@@ -523,6 +547,8 @@ export function getTrainerProfile() {
 export function patchTrainerProfile(body: { about: string; phone: string }) {
   const row = db.trainers.find((item) => item.id === STUB_TRAINER)
   if (!row) return fail('FORBIDDEN')
+  const message = phoneError(body.phone)
+  if (message) return failMessage(message)
   row.about = body.about.trim()
   row.phone = body.phone.trim()
   touch()
@@ -1082,14 +1108,46 @@ function csvCell(value: string | number): string {
 }
 
 export function putStudio(body: Partial<StudioProfile>) {
-  const keys = ['address', 'phone', 'instagram_url', 'contact_url', 'map_url'] as const
+  const keys = ['address', 'phone', 'instagram_url', 'contact_url', 'map_url', 'guide', 'pricing'] as const
   for (const key of keys) {
-    const value = body[key]
-    if (typeof value !== 'string') return fail('VALIDATION')
-    db.studio[key] = value
+    if (typeof body[key] !== 'string') return fail('VALIDATION')
   }
+  const guide = body.guide?.trim() ?? ''
+  if ([...guide].length > 4000) return failMessage('Памятка слишком длинная')
+  const message = pricingError(body.pricing ?? '')
+  if (message) return failMessage(message)
+  db.studio.address = body.address ?? ''
+  db.studio.phone = body.phone ?? ''
+  db.studio.instagram_url = body.instagram_url ?? ''
+  db.studio.contact_url = body.contact_url ?? ''
+  db.studio.map_url = body.map_url ?? ''
+  db.studio.guide = guide
+  db.studio.pricing = canonicalPricing(body.pricing ?? '')
   touch()
   return getStudio()
+}
+
+export function listPublicTrainers() {
+  watch()
+  const data = db.trainers
+    .filter((row) => row.active)
+    .map(publicTrainer)
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru') || a.id.localeCompare(b.id))
+  return { ok: true as const, data, pending: false }
+}
+
+export function getPublicTrainer(id: string) {
+  watch()
+  const row = db.trainers.find((item) => item.id === id && item.active)
+  if (!row) return { ...failMessage('Тренер не найден'), pending: false }
+  return { ok: true as const, data: publicTrainer(row), pending: false }
+}
+
+function publicTrainer(row: (typeof db.trainers)[number]): PublicTrainer {
+  const classes = [
+    ...new Set(db.templates.filter((item) => item.active && item.trainer_id === row.id).map((item) => item.title)),
+  ].sort((a, b) => a.localeCompare(b, 'ru'))
+  return { id: row.id, name: row.name, about: row.about, phone: row.phone, classes }
 }
 
 export function todayRoster(): RosterData[] {
@@ -1124,12 +1182,12 @@ function seed() {
   for (const [id, name] of trainers) db.trainers.push({ id, name, active: true, about: '', phone: '', telegram_user_id: null })
 
   const types: Array<[string, string, number, number, number, number, string]> = [
-    ['ty-kids', 'K-POP KIDS (Dance)', 60, 10, 30, 30, '#3a7ca5'],
-    ['ty-kpop', 'K-POP 16+', 60, 9, 17, 35, '#b8860b'],
-    ['ty-yoga', 'Aero Yoga', 60, 6, 17, 40, '#5c7a3a'],
-    ['ty-stretch', 'DYNAMIC STRETCHING', 55, 9, 17, 35, '#3d6b8c'],
-    ['ty-heels', 'HIGH HEELS', 60, 9, 0, 0, '#d46a3a'],
-    ['ty-aero', 'Aero Stretching', 60, 6, 17, 40, '#c43d5a'],
+    ['ty-kids', 'K-POP KIDS (Dance)', 60, 10, 30, 30, '#1d4ed8'],
+    ['ty-kpop', 'K-POP 16+', 60, 9, 17, 35, '#7c3aed'],
+    ['ty-yoga', 'Aero Yoga', 60, 6, 17, 40, '#4d7c0f'],
+    ['ty-stretch', 'DYNAMIC STRETCHING', 55, 9, 17, 35, '#0e7490'],
+    ['ty-heels', 'HIGH HEELS', 60, 9, 0, 0, '#c2410c'],
+    ['ty-aero', 'Aero Stretching', 60, 6, 17, 40, '#be123c'],
   ]
   for (const [id, title, duration, capacity, min, max, color] of types) {
     db.types.push({

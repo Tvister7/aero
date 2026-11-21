@@ -21,6 +21,30 @@ func clientRestricted(balance int) Client {
 	return Client{ID: "anna", TelegramID: 1001, Username: "anna", Name: "Анна", Phone: "+995555112233", Policy: Restricted}
 }
 
+func TestFirstClassNotices(t *testing.T) {
+	starts := at(2026, 11, 21, 10, 0)
+	if PlaceLink(" https://maps.example/aero ", "https://aero.example") != "https://maps.example/aero" {
+		t.Fatal("map link")
+	}
+	if PlaceLink("", "https://aero.example/") != "https://aero.example/#/studio/guide" {
+		t.Fatal("guide link")
+	}
+	if PlaceLink("  ", "") != "" {
+		t.Fatal("empty link")
+	}
+	client := FirstClassText("Aero Yoga", starts, "https://aero.example/#/studio/guide")
+	if client != "Вы записаны на первое занятие: Aero Yoga, 21.11 10:00.\nКак нас найти: https://aero.example/#/studio/guide\nВ день занятия администратор напишет вам код от подъезда." {
+		t.Fatalf("client %q", client)
+	}
+	admin := AdminFirstBookingText(" Анна ", "@anna", " +995555112233 ", "Aero Yoga", starts)
+	if admin != "Первая запись: Анна, @anna, +995555112233.\nAero Yoga, 21.11 10:00.\nНапишите код от подъезда в день занятия." {
+		t.Fatalf("admin %q", admin)
+	}
+	if AdminFirstBookingText("", "", "", "Aero Yoga", starts) != "Первая запись: без имени.\nAero Yoga, 21.11 10:00.\nНапишите код от подъезда в день занятия." {
+		t.Fatal("nameless")
+	}
+}
+
 func TestBookRestrictedWithoutCredits(t *testing.T) {
 	_, err := Book(BookRequest{
 		Now: at(2026, 11, 18, 10, 0), Class: yogaAt(at(2026, 11, 19, 10, 0)),
@@ -37,7 +61,7 @@ func TestBookPostpayWithDebtDoesNotTouchBalance(t *testing.T) {
 		Client:    Client{ID: "nina", TelegramID: 5, Policy: Postpay, Name: "Нино"},
 		Balance:   -2,
 		Name:      "Нино",
-		Phone:     "+995",
+		Phone:     "+995555112233",
 		BookingID: "b1",
 		EventID:   "e1",
 	})

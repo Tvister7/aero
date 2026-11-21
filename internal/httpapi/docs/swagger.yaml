@@ -556,8 +556,8 @@ definitions:
         type: string
     type: object
   ProfileInput:
-    description: 'Имя и телефон. Пустая строка и отсутствие поля не стирают сохранённое
-      значение. Ник из этого объекта не читается: он берётся из initData.'
+    description: 'Имя и телефон. Пустая строка стирает сохранённое значение. Ник из
+      этого объекта не читается: он берётся из initData.'
     properties:
       name:
         example: Анна
@@ -565,6 +565,48 @@ definitions:
       phone:
         example: "+995555000000"
         type: string
+    type: object
+  PublicTrainer:
+    description: Карточка тренера для клиента. Telegram id сюда не входит.
+    properties:
+      about:
+        example: Йога и растяжка
+        type: string
+      classes:
+        example:
+        - Aero Yoga
+        items:
+          type: string
+        type: array
+      id:
+        example: 6ba7b811-9dad-11d1-80b4-00c04fd430c8
+        type: string
+      name:
+        example: Лилия
+        type: string
+      phone:
+        example: "+995555000000"
+        type: string
+    type: object
+  PublicTrainerResponse:
+    description: Одна публичная карточка тренера.
+    properties:
+      data:
+        $ref: '#/definitions/PublicTrainer'
+      ok:
+        example: true
+        type: boolean
+    type: object
+  PublicTrainersResponse:
+    description: Список активных тренеров.
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/PublicTrainer'
+        type: array
+      ok:
+        example: true
+        type: boolean
     type: object
   RescheduleInput:
     description: Занятие, на которое переносится запись.
@@ -666,14 +708,18 @@ definitions:
         type: boolean
     type: object
   Studio:
-    description: Контакты. Пустая строка значит «не заполнено». В PUT нужны все пять
-      полей.
+    description: Контакты, памятка и прайс. Пустая строка контакта значит «не заполнено».
+      pricing — JSON-объект разделов base, aero, kids и personal. В PUT нужны все
+      поля.
     properties:
       address:
         example: ул. Пример, 1
         type: string
       contact_url:
         example: https://t.me/aero
+        type: string
+      guide:
+        example: Как нас найти
         type: string
       instagram_url:
         example: https://instagram.com/aero
@@ -683,6 +729,9 @@ definitions:
         type: string
       phone:
         example: "+995555000000"
+        type: string
+      pricing:
+        example: '{"base":{"1":35}}'
         type: string
     type: object
   StudioResponse:
@@ -1601,9 +1650,10 @@ paths:
       tags:
       - Админ
     put:
-      description: Все пять полей обязательны. Пустая строка стирает значение.
+      description: Все поля обязательны. Пустая строка контакта стирает значение.
+        pricing — JSON разделов base, aero, kids и personal.
       parameters:
-      - description: Все пять полей
+      - description: Контакты, памятка и прайс
         in: body
         name: body
         required: true
@@ -2274,7 +2324,8 @@ paths:
   /classes/{id}/bookings:
     post:
       description: Баланс не меняется. Пустые имя и телефон не стирают сохранённые.
-        Ник берётся из initData.
+        Ник берётся из initData. Первая запись клиента отправляет ему ссылку, как
+        найти студию, и сообщение каждому администратору.
       parameters:
       - description: Идентификатор занятия
         in: path
@@ -2341,7 +2392,9 @@ paths:
       tags:
       - Клиент
     patch:
-      description: Пустые имя и телефон уже сохранённые значения не стирают.
+      description: Пустая строка стирает сохранённое имя или телефон. Непустое имя
+        — буквы, пробел, дефис и апостроф. Непустой телефон — цифры, пробел, +, скобки
+        и дефис, не меньше 9 цифр.
       parameters:
       - description: Можно прислать пустое тело
         in: body
@@ -2530,7 +2583,8 @@ paths:
       - Клиент
   /studio:
     get:
-      description: Адрес, телефон и ссылки. Пустая строка — поле не заполнено.
+      description: Адрес, телефон, ссылки, памятка и прайс. Пустая строка контакта
+        — поле не заполнено.
       responses:
         "200":
           description: OK
@@ -2993,6 +3047,58 @@ paths:
       summary: Виды занятий
       tags:
       - Тренер
+  /trainers:
+    get:
+      description: Только активные. Телефон пуст, если контакт не заполнен. classes
+        — названия активных шаблонов.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/PublicTrainersResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Тренеры
+      tags:
+      - Клиент
+  /trainers/{id}:
+    get:
+      parameters:
+      - description: id тренера
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/PublicTrainerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorBody'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorBody'
+      security:
+      - TMA: []
+      summary: Тренер
+      tags:
+      - Клиент
 produces:
 - application/json
 securityDefinitions:

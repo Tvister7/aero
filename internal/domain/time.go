@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -96,6 +97,41 @@ func when(t time.Time) string {
 
 func ReminderText(title string, starts time.Time) string {
 	return fmt.Sprintf("Напоминание: %s начнётся %s.", title, when(starts))
+}
+
+// PlaceLink — ссылка, как найти студию. Карта важнее страницы памятки.
+func PlaceLink(mapURL, origin string) string {
+	if link := strings.TrimSpace(mapURL); link != "" {
+		return link
+	}
+	origin = strings.TrimRight(strings.TrimSpace(origin), "/")
+	if origin == "" {
+		return ""
+	}
+	return origin + "/#/studio/guide"
+}
+
+func FirstClassText(title string, starts time.Time, link string) string {
+	text := fmt.Sprintf("Вы записаны на первое занятие: %s, %s.", title, when(starts))
+	if link != "" {
+		text += "\nКак нас найти: " + link
+	}
+	return text + "\nВ день занятия администратор напишет вам код от подъезда."
+}
+
+func AdminFirstBookingText(name, username, phone, title string, starts time.Time) string {
+	who := strings.TrimSpace(name)
+	if who == "" {
+		who = "без имени"
+	}
+	username = strings.TrimPrefix(strings.TrimSpace(username), "@")
+	if username != "" {
+		who += ", @" + username
+	}
+	if phone = strings.TrimSpace(phone); phone != "" {
+		who += ", " + phone
+	}
+	return fmt.Sprintf("Первая запись: %s.\n%s, %s.\nНапишите код от подъезда в день занятия.", who, title, when(starts))
 }
 
 func MoveText(title string, starts time.Time) string {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -28,6 +29,8 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /swagger/", httpSwagger.Handler(httpSwagger.PersistAuthorization(true)))
 	mux.HandleFunc("GET /studio", s.auth(s.studio))
+	mux.HandleFunc("GET /trainers", s.auth(s.publicTrainers))
+	mux.HandleFunc("GET /trainers/{id}", s.auth(s.publicTrainer))
 	mux.HandleFunc("GET /schedule", s.auth(s.schedule))
 	mux.HandleFunc("GET /classes/{id}", s.auth(s.class))
 	mux.HandleFunc("POST /classes/{id}/bookings", s.auth(s.book))
@@ -160,6 +163,36 @@ func (s *Server) isAdmin(id int64) bool {
 	return ok
 }
 
+func (s *Server) notifyFirstBooking(ctx context.Context, clientTelegram int64, out sqlite.BookOutcome) {
+	starts, err := domain.ParseInstant(out.Class.StartsAt)
+	if err != nil {
+		slog.Error("first booking", "err", err)
+		return
+	}
+	link := ""
+	if studio, err := s.DB.Studio(ctx); err != nil {
+		slog.Error("first booking studio", "err", err)
+	} else {
+		link = domain.PlaceLink(studio.MapURL, s.Origin)
+	}
+	notices := []sqlite.Outbound{{
+		TelegramID: clientTelegram,
+		Text:       domain.FirstClassText(out.Class.Title, starts, link),
+	}}
+	admins := make([]int64, 0, len(s.Admins))
+	for id := range s.Admins {
+		admins = append(admins, id)
+	}
+	slices.Sort(admins)
+	for _, id := range admins {
+		notices = append(notices, sqlite.Outbound{
+			TelegramID: id,
+			Text:       domain.AdminFirstBookingText(out.ClientName, out.Username, out.ClientPhone, out.Class.Title, starts),
+		})
+	}
+	s.notify(ctx, notices)
+}
+
 func (s *Server) notify(ctx context.Context, notices []sqlite.Outbound) {
 	if s.Bot == nil {
 		return
@@ -199,6 +232,8 @@ func studioFrom(raw map[string]json.RawMessage) (sqlite.Studio, *domain.Error) {
 		{"instagram_url", &studio.InstagramURL},
 		{"contact_url", &studio.ContactURL},
 		{"map_url", &studio.MapURL},
+		{"guide", &studio.Guide},
+		{"pricing", &studio.Pricing},
 	}
 	for _, field := range fields {
 		value, ok := raw[field.key]
