@@ -11,13 +11,13 @@ import (
 
 	"github.com/Tvister7/aero/internal/domain"
 	_ "github.com/Tvister7/aero/internal/httpapi/docs"
-	"github.com/Tvister7/aero/internal/sqlite"
+	"github.com/Tvister7/aero/internal/store"
 	"github.com/Tvister7/aero/internal/telegram"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
 type Server struct {
-	DB     *sqlite.DB
+	DB     *store.DB
 	Bot    telegram.Sender
 	Admins map[int64]struct{}
 	Origin string
@@ -165,7 +165,7 @@ func (s *Server) isAdmin(id int64) bool {
 	return ok
 }
 
-func (s *Server) notifyFirstBooking(ctx context.Context, clientTelegram int64, out sqlite.BookOutcome) {
+func (s *Server) notifyFirstBooking(ctx context.Context, clientTelegram int64, out store.BookOutcome) {
 	starts, err := domain.ParseInstant(out.Class.StartsAt)
 	if err != nil {
 		slog.Error("first booking", "err", err)
@@ -177,7 +177,7 @@ func (s *Server) notifyFirstBooking(ctx context.Context, clientTelegram int64, o
 	} else {
 		link = domain.PlaceLink(studio.MapURL, s.Origin)
 	}
-	notices := []sqlite.Outbound{{
+	notices := []store.Outbound{{
 		TelegramID: clientTelegram,
 		Text:       domain.FirstClassText(out.Class.Title, starts, link),
 	}}
@@ -187,7 +187,7 @@ func (s *Server) notifyFirstBooking(ctx context.Context, clientTelegram int64, o
 	}
 	slices.Sort(admins)
 	for _, id := range admins {
-		notices = append(notices, sqlite.Outbound{
+		notices = append(notices, store.Outbound{
 			TelegramID: id,
 			Text:       domain.AdminFirstBookingText(out.ClientName, out.Username, out.ClientPhone, out.Class.Title, starts),
 		})
@@ -195,7 +195,7 @@ func (s *Server) notifyFirstBooking(ctx context.Context, clientTelegram int64, o
 	s.notify(ctx, notices)
 }
 
-func (s *Server) notify(ctx context.Context, notices []sqlite.Outbound) {
+func (s *Server) notify(ctx context.Context, notices []store.Outbound) {
 	if s.Bot == nil {
 		return
 	}
@@ -219,12 +219,12 @@ func initData(r *http.Request) (string, bool) {
 	return raw, raw != ""
 }
 
-func asUser(user telegram.User) sqlite.User {
-	return sqlite.User{TelegramID: user.ID, Username: user.Username}
+func asUser(user telegram.User) store.User {
+	return store.User{TelegramID: user.ID, Username: user.Username}
 }
 
-func studioFrom(raw map[string]json.RawMessage) (sqlite.Studio, *domain.Error) {
-	var studio sqlite.Studio
+func studioFrom(raw map[string]json.RawMessage) (store.Studio, *domain.Error) {
+	var studio store.Studio
 	fields := []struct {
 		key string
 		dst *string
@@ -240,7 +240,7 @@ func studioFrom(raw map[string]json.RawMessage) (sqlite.Studio, *domain.Error) {
 	for _, field := range fields {
 		value, ok := raw[field.key]
 		if !ok || json.Unmarshal(value, field.dst) != nil {
-			return sqlite.Studio{}, domain.Fail(domain.Validation)
+			return store.Studio{}, domain.Fail(domain.Validation)
 		}
 	}
 	return studio, nil

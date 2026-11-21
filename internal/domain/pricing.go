@@ -3,7 +3,6 @@ package domain
 import (
 	"bytes"
 	"encoding/json"
-	"math"
 	"strings"
 	"unicode/utf8"
 )
@@ -22,7 +21,7 @@ func NormalizeGuide(raw string) (string, *Error) {
 }
 
 // NormalizePricing проверяет сырой JSON прайса и возвращает каноническую запись.
-// Пустая строка сохраняется как пустой объект. Чужие разделы и неположительные цены отклоняются.
+// Пустая строка сохраняется как пустой объект. Чужие разделы и нецелые цены отклоняются.
 func NormalizePricing(raw string) (string, *Error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -44,7 +43,7 @@ func NormalizePricing(raw string) (string, *Error) {
 	for _, name := range pricingSections {
 		allowed[name] = true
 	}
-	clean := map[string]map[string]float64{}
+	clean := map[string]map[string]int64{}
 	for name, value := range sections {
 		if !allowed[name] {
 			return "", FailMessage(Validation, "В прайсе можно указать только base, aero, kids и personal")
@@ -62,7 +61,7 @@ func NormalizePricing(raw string) (string, *Error) {
 	return string(encoded), nil
 }
 
-func pricingOffers(raw json.RawMessage) (map[string]float64, *Error) {
+func pricingOffers(raw json.RawMessage) (map[string]int64, *Error) {
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 || trimmed[0] != '{' {
 		return nil, FailMessage(Validation, "Раздел прайса должен быть объектом")
@@ -71,19 +70,19 @@ func pricingOffers(raw json.RawMessage) (map[string]float64, *Error) {
 	decoder.UseNumber()
 	var offers map[string]json.Number
 	if err := decoder.Decode(&offers); err != nil || decoder.More() {
-		return nil, FailMessage(Validation, "В прайсе нужны положительные числа")
+		return nil, FailMessage(Validation, "В прайсе нужны целые положительные числа")
 	}
 	if offers == nil {
-		return map[string]float64{}, nil
+		return map[string]int64{}, nil
 	}
-	clean := map[string]float64{}
+	clean := map[string]int64{}
 	for label, number := range offers {
 		if strings.TrimSpace(label) == "" || label != strings.TrimSpace(label) {
-			return nil, FailMessage(Validation, "В прайсе нужны положительные числа")
+			return nil, FailMessage(Validation, "В прайсе нужны целые положительные числа")
 		}
-		price, err := number.Float64()
-		if err != nil || price <= 0 || math.IsNaN(price) || math.IsInf(price, 0) {
-			return nil, FailMessage(Validation, "В прайсе нужны положительные числа")
+		price, err := number.Int64()
+		if err != nil || price <= 0 {
+			return nil, FailMessage(Validation, "В прайсе нужны целые положительные числа")
 		}
 		clean[label] = price
 	}

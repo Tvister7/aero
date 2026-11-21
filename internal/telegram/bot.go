@@ -14,7 +14,8 @@ type Bot struct {
 	token  string
 	client *http.Client
 	poll   *http.Client
-	base   string
+	// APIRoot подменяет адрес Bot API. Пустая строка — https://api.telegram.org.
+	APIRoot string
 }
 
 func NewBot(token string) *Bot {
@@ -30,7 +31,7 @@ func (b *Bot) Send(ctx context.Context, chatID int64, text string) error {
 }
 
 func (b *Bot) endpoint(method string) string {
-	base := b.base
+	base := b.APIRoot
 	if base == "" {
 		base = "https://api.telegram.org"
 	}

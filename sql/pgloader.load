@@ -1,0 +1,9 @@
+LOAD DATABASE
+     FROM sqlite:///data/aero.db
+     INTO postgresql://aero:aero@postgres:5432/aero?sslmode=disable
+
+ WITH create tables, create no indexes, create no foreign keys,
+      workers = 1, concurrency = 1
+
+ ALTER SCHEMA 'main' RENAME TO 'legacy'
+;

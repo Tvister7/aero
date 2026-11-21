@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/Tvister7/aero/internal/domain"
-	"github.com/Tvister7/aero/internal/sqlite"
+	"github.com/Tvister7/aero/internal/store"
 	"github.com/Tvister7/aero/internal/telegram"
 )
 
@@ -61,7 +61,7 @@ func (s *Server) createTrainer(w http.ResponseWriter, r *http.Request, _ telegra
 // @Tags Админ
 // @Security TMA
 // @Param id path string true "Идентификатор тренера"
-// @Param body body sqlite.TrainerFields true "Меняющиеся поля"
+// @Param body body store.TrainerFields true "Меняющиеся поля"
 // @Success 200 {object} TrainerResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -69,7 +69,7 @@ func (s *Server) createTrainer(w http.ResponseWriter, r *http.Request, _ telegra
 // @Failure 500 {object} ErrorBody
 // @Router /admin/trainers/{id} [patch]
 func (s *Server) patchTrainer(w http.ResponseWriter, r *http.Request, _ telegram.User) {
-	var body sqlite.TrainerFields
+	var body store.TrainerFields
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
@@ -105,7 +105,7 @@ func (s *Server) types(w http.ResponseWriter, r *http.Request, _ telegram.User) 
 // @Description Нужны title, duration_minutes, capacity, price_min и price_max. Цена остаётся подписью.
 // @Tags Админ
 // @Security TMA
-// @Param body body sqlite.TypeInput true "Вид"
+// @Param body body store.TypeInput true "Вид"
 // @Success 200 {object} TypeResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -113,7 +113,7 @@ func (s *Server) types(w http.ResponseWriter, r *http.Request, _ telegram.User) 
 // @Failure 500 {object} ErrorBody
 // @Router /admin/training-types [post]
 func (s *Server) createType(w http.ResponseWriter, r *http.Request, _ telegram.User) {
-	var body sqlite.TypeInput
+	var body store.TypeInput
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
@@ -132,7 +132,7 @@ func (s *Server) createType(w http.ResponseWriter, r *http.Request, _ telegram.U
 // @Tags Админ
 // @Security TMA
 // @Param id path string true "Идентификатор вида"
-// @Param body body sqlite.TypeInput true "Меняющиеся поля"
+// @Param body body store.TypeInput true "Меняющиеся поля"
 // @Success 200 {object} TypeResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -140,7 +140,7 @@ func (s *Server) createType(w http.ResponseWriter, r *http.Request, _ telegram.U
 // @Failure 500 {object} ErrorBody
 // @Router /admin/training-types/{id} [patch]
 func (s *Server) patchType(w http.ResponseWriter, r *http.Request, _ telegram.User) {
-	var body sqlite.TypeInput
+	var body store.TypeInput
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
@@ -176,7 +176,7 @@ func (s *Server) templates(w http.ResponseWriter, r *http.Request, _ telegram.Us
 // @Description title копируется с типа. Повтор четвёрки тренер, название, день и время отвечает VALIDATION.
 // @Tags Админ
 // @Security TMA
-// @Param body body sqlite.TemplateInput true "Шаблон"
+// @Param body body store.TemplateInput true "Шаблон"
 // @Success 200 {object} TemplateResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -184,7 +184,7 @@ func (s *Server) templates(w http.ResponseWriter, r *http.Request, _ telegram.Us
 // @Failure 500 {object} ErrorBody
 // @Router /admin/templates [post]
 func (s *Server) createTemplate(w http.ResponseWriter, r *http.Request, _ telegram.User) {
-	var body sqlite.TemplateInput
+	var body store.TemplateInput
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
@@ -203,7 +203,7 @@ func (s *Server) createTemplate(w http.ResponseWriter, r *http.Request, _ telegr
 // @Tags Админ
 // @Security TMA
 // @Param id path string true "Идентификатор шаблона"
-// @Param body body sqlite.TemplateInput true "Меняющиеся поля"
+// @Param body body store.TemplateInput true "Меняющиеся поля"
 // @Success 200 {object} TemplateResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -211,7 +211,7 @@ func (s *Server) createTemplate(w http.ResponseWriter, r *http.Request, _ telegr
 // @Failure 500 {object} ErrorBody
 // @Router /admin/templates/{id} [patch]
 func (s *Server) patchTemplate(w http.ResponseWriter, r *http.Request, _ telegram.User) {
-	var body sqlite.TemplateInput
+	var body store.TemplateInput
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
@@ -282,7 +282,7 @@ func (s *Server) adminSchedule(w http.ResponseWriter, r *http.Request, _ telegra
 // @Description template_id остаётся пустым. Название, длительность и подпись стоимости снимаются с типа.
 // @Tags Админ
 // @Security TMA
-// @Param body body sqlite.ClassInput true "Слот"
+// @Param body body store.ClassInput true "Слот"
 // @Success 200 {object} ClassResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -290,7 +290,7 @@ func (s *Server) adminSchedule(w http.ResponseWriter, r *http.Request, _ telegra
 // @Failure 500 {object} ErrorBody
 // @Router /admin/classes [post]
 func (s *Server) createClass(w http.ResponseWriter, r *http.Request, _ telegram.User) {
-	var body sqlite.ClassInput
+	var body store.ClassInput
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
@@ -309,7 +309,7 @@ func (s *Server) createClass(w http.ResponseWriter, r *http.Request, _ telegram.
 // @Tags Админ
 // @Security TMA
 // @Param id path string true "Идентификатор занятия"
-// @Param body body sqlite.ClassPatch true "Перенос или отмена"
+// @Param body body store.ClassPatch true "Перенос или отмена"
 // @Success 200 {object} ClassResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -318,7 +318,7 @@ func (s *Server) createClass(w http.ResponseWriter, r *http.Request, _ telegram.
 // @Failure 500 {object} ErrorBody
 // @Router /admin/classes/{id} [patch]
 func (s *Server) patchClass(w http.ResponseWriter, r *http.Request, _ telegram.User) {
-	var body sqlite.ClassPatch
+	var body store.ClassPatch
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
@@ -545,10 +545,10 @@ func (s *Server) adminStudio(w http.ResponseWriter, r *http.Request, user telegr
 // Замена контактов студии.
 //
 // @Summary Сохранить контакты
-// @Description Все поля обязательны. Пустая строка контакта стирает значение. pricing — JSON разделов base, aero, kids и personal.
+// @Description Все поля обязательны. Пустая строка контакта стирает значение. pricing — JSON разделов base, aero, kids и personal, цены — целые положительные числа.
 // @Tags Админ
 // @Security TMA
-// @Param body body sqlite.Studio true "Контакты, памятка и прайс"
+// @Param body body store.Studio true "Контакты, памятка и прайс"
 // @Success 200 {object} StudioResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -599,7 +599,7 @@ func (s *Server) messages(w http.ResponseWriter, r *http.Request, _ telegram.Use
 // @Tags Админ
 // @Security TMA
 // @Param key path string true "Ключ каталога"
-// @Param body body sqlite.MessageInput true "Текст"
+// @Param body body store.MessageInput true "Текст"
 // @Success 200 {object} MessageResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -607,7 +607,7 @@ func (s *Server) messages(w http.ResponseWriter, r *http.Request, _ telegram.Use
 // @Failure 500 {object} ErrorBody
 // @Router /admin/messages/{key} [put]
 func (s *Server) putMessage(w http.ResponseWriter, r *http.Request, _ telegram.User) {
-	var body sqlite.MessageInput
+	var body store.MessageInput
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
@@ -625,7 +625,7 @@ func (s *Server) putMessage(w http.ResponseWriter, r *http.Request, _ telegram.U
 // @Description Клиент видит «Студия занята». Админ и тренеры видят название.
 // @Tags Админ
 // @Security TMA
-// @Param body body sqlite.HoldInput true "Название и начало"
+// @Param body body store.HoldInput true "Название и начало"
 // @Success 200 {object} ClassResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -634,7 +634,7 @@ func (s *Server) putMessage(w http.ResponseWriter, r *http.Request, _ telegram.U
 // @Failure 500 {object} ErrorBody
 // @Router /admin/holds [post]
 func (s *Server) createHold(w http.ResponseWriter, r *http.Request, _ telegram.User) {
-	var body sqlite.HoldInput
+	var body store.HoldInput
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
@@ -652,7 +652,7 @@ func (s *Server) createHold(w http.ResponseWriter, r *http.Request, _ telegram.U
 // @Description В общее расписание не попадает. Клиент видит его в своих записях.
 // @Tags Админ
 // @Security TMA
-// @Param body body sqlite.IndividualInput true "Тренер, клиент и начало"
+// @Param body body store.IndividualInput true "Тренер, клиент и начало"
 // @Success 200 {object} ClassResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -661,7 +661,7 @@ func (s *Server) createHold(w http.ResponseWriter, r *http.Request, _ telegram.U
 // @Failure 500 {object} ErrorBody
 // @Router /admin/individuals [post]
 func (s *Server) createIndividual(w http.ResponseWriter, r *http.Request, _ telegram.User) {
-	var body sqlite.IndividualInput
+	var body store.IndividualInput
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return

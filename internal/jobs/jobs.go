@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Tvister7/aero/internal/domain"
-	"github.com/Tvister7/aero/internal/sqlite"
+	"github.com/Tvister7/aero/internal/store"
 	"github.com/Tvister7/aero/internal/telegram"
 )
 
@@ -15,7 +15,7 @@ type Scheduler struct {
 	lastBackup string
 }
 
-func (s *Scheduler) Tick(ctx context.Context, db *sqlite.DB, bot telegram.Sender, now time.Time) {
+func (s *Scheduler) Tick(ctx context.Context, db *store.DB, bot telegram.Sender, now time.Time) {
 	if err := remind(ctx, db, bot, now); err != nil {
 		slog.Error("reminders", "err", err)
 	}
@@ -38,13 +38,13 @@ func (s *Scheduler) Tick(ctx context.Context, db *sqlite.DB, bot telegram.Sender
 	}
 }
 
-func remind(ctx context.Context, db *sqlite.DB, bot telegram.Sender, now time.Time) error {
+func remind(ctx context.Context, db *store.DB, bot telegram.Sender, now time.Time) error {
 	rows, err := db.PendingReminders(ctx)
 	if err != nil {
 		return err
 	}
 	items := make([]domain.ReminderCandidate, 0, len(rows))
-	byID := make(map[string]sqlite.DueReminder, len(rows))
+	byID := make(map[string]store.DueReminder, len(rows))
 	for _, row := range rows {
 		items = append(items, row.ReminderCandidate)
 		byID[row.BookingID] = row
@@ -74,13 +74,13 @@ func remind(ctx context.Context, db *sqlite.DB, bot telegram.Sender, now time.Ti
 	return nil
 }
 
-func balanceWarn(ctx context.Context, db *sqlite.DB, bot telegram.Sender, now time.Time) error {
+func balanceWarn(ctx context.Context, db *store.DB, bot telegram.Sender, now time.Time) error {
 	rows, err := db.PendingBalanceNotices(ctx, now)
 	if err != nil {
 		return err
 	}
 	items := make([]domain.BalanceCandidate, 0, len(rows))
-	byID := make(map[string]sqlite.DueBalanceNotice, len(rows))
+	byID := make(map[string]store.DueBalanceNotice, len(rows))
 	for _, row := range rows {
 		items = append(items, row.BalanceCandidate)
 		byID[row.ID] = row

@@ -16,7 +16,7 @@ import (
 	"github.com/Tvister7/aero/internal/domain"
 	"github.com/Tvister7/aero/internal/httpapi"
 	"github.com/Tvister7/aero/internal/jobs"
-	"github.com/Tvister7/aero/internal/sqlite"
+	"github.com/Tvister7/aero/internal/store"
 	"github.com/Tvister7/aero/internal/telegram"
 )
 
@@ -50,23 +50,28 @@ func run(args []string) error {
 		}
 		return seed(args[1])
 	}
+	if len(args) > 0 && args[0] == "migrate" {
+		if len(args) != 1 {
+			return fmt.Errorf("usage: aero migrate")
+		}
+		return migrate()
+	}
 	if len(args) > 0 {
-		return fmt.Errorf("usage: aero [seed seed_data.sql]")
+		return fmt.Errorf("usage: aero [migrate | seed seed_data.sql]")
 	}
 	return serve()
 }
 
 func serve() error {
 	token := os.Getenv("BOT_TOKEN")
-	path := os.Getenv("DATA_PATH")
-	if token == "" || path == "" {
-		return fmt.Errorf("BOT_TOKEN and DATA_PATH are required")
+	if token == "" || os.Getenv("DATABASE_URL") == "" {
+		return fmt.Errorf("BOT_TOKEN and DATABASE_URL are required")
 	}
 	admins, err := parseAdmins(os.Getenv("ADMIN_IDS"))
 	if err != nil {
 		return err
 	}
-	db, err := sqlite.Open(path)
+	db, err := openDB()
 	if err != nil {
 		return err
 	}
@@ -100,7 +105,7 @@ func serve() error {
 	return nil
 }
 
-func runJobs(ctx context.Context, db *sqlite.DB, bot telegram.Sender) {
+func runJobs(ctx context.Context, db *store.DB, bot telegram.Sender) {
 	var scheduler jobs.Scheduler
 	scheduler.Tick(ctx, db, bot, time.Now())
 	ticker := time.NewTicker(time.Minute)
@@ -115,22 +120,34 @@ func runJobs(ctx context.Context, db *sqlite.DB, bot telegram.Sender) {
 	}
 }
 
-func seed(path string) error {
-	data := os.Getenv("DATA_PATH")
-	if data == "" {
-		return fmt.Errorf("DATA_PATH is required")
+func migrate() error {
+	db, err := openDB()
+	if err != nil {
+		return err
 	}
-	db, err := sqlite.Open(data)
+	return db.Close()
+}
+
+func seed(path string) error {
+	db, err := openDB()
 	if err != nil {
 		return err
 	}
 	defer db.Close()
-	counts, err := sqlite.ImportFile(context.Background(), db, path, time.Now())
+	counts, err := store.ImportFile(context.Background(), db, path, time.Now())
 	if err != nil {
 		return err
 	}
 	fmt.Printf("trainers %d, types %d, templates %d\n", counts.Trainers, counts.Types, counts.Templates)
 	return nil
+}
+
+func openDB() (*store.DB, error) {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		return nil, fmt.Errorf("DATABASE_URL is required")
+	}
+	return store.Open(dsn)
 }
 
 func studioExclusive(raw string) bool {

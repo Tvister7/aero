@@ -1,5 +1,8 @@
 .env
 sql/*
+!sql/pgloader.load
+!sql/migrate_from_sqlite.sql
+!sql/migrate_from_sqlite.sh
 *.log
 /docs/
 /docs/*

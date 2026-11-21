@@ -751,8 +751,8 @@ definitions:
     type: object
   Studio:
     description: Контакты, памятка и прайс. Пустая строка контакта значит «не заполнено».
-      pricing — JSON-объект разделов base, aero, kids и personal. В PUT нужны все
-      поля.
+      pricing — JSON-объект разделов base, aero, kids и personal, цены — целые положительные
+      числа. В PUT нужны все поля.
     properties:
       address:
         example: ул. Пример, 1
@@ -1759,7 +1759,8 @@ paths:
       - Админ
     put:
       description: Все поля обязательны. Пустая строка контакта стирает значение.
-        pricing — JSON разделов base, aero, kids и personal.
+        pricing — JSON разделов base, aero, kids и personal, цены — целые положительные
+        числа.
       parameters:
       - description: Контакты, памятка и прайс
         in: body
