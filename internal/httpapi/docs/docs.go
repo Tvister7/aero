@@ -950,7 +950,7 @@ const docTemplate = `{
                         "TMA": []
                     }
                 ],
-                "description": "Все поля обязательны. Пустая строка контакта стирает значение. pricing — JSON разделов base, aero, kids и personal.",
+                "description": "Все поля обязательны. Пустая строка контакта стирает значение. pricing — JSON разделов base, aero, kids и personal, цены — целые положительные числа.",
                 "tags": [
                     "Админ"
                 ],
@@ -4197,7 +4197,7 @@ const docTemplate = `{
             }
         },
         "Studio": {
-            "description": "Контакты, памятка и прайс. Пустая строка контакта значит «не заполнено». pricing — JSON-объект разделов base, aero, kids и personal. В PUT нужны все поля.",
+            "description": "Контакты, памятка и прайс. Пустая строка контакта значит «не заполнено». pricing — JSON-объект разделов base, aero, kids и personal, цены — целые положительные числа. В PUT нужны все поля.",
             "type": "object",
             "properties": {
                 "address": {

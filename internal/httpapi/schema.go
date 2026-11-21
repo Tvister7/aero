@@ -1,6 +1,6 @@
 package httpapi
 
-import "github.com/Tvister7/aero/internal/sqlite"
+import "github.com/Tvister7/aero/internal/store"
 
 // ErrorBody ошибка API. ok всегда false.
 // Тексты: UNAUTHORIZED «Откройте приложение заново из Telegram»,
@@ -34,9 +34,9 @@ type TrainerInput struct {
 	Name string `json:"name" example:"Лилия"`
 }
 
-// TrainerPatch оставлен как прежнее имя правки. Поля совпадают с sqlite.TrainerFields.
+// TrainerPatch оставлен как прежнее имя правки. Поля совпадают с store.TrainerFields.
 // @Description Правка тренера. Отсутствующее поле не меняется. Пустой telegram_user_id снимает привязку.
-type TrainerPatch = sqlite.TrainerFields
+type TrainerPatch = store.TrainerFields
 
 // RescheduleInput занятие, на которое переносится запись.
 // @Description Занятие, на которое переносится запись.
@@ -74,73 +74,73 @@ type GrantInput struct {
 // StudioResponse ответ с карточкой студии.
 // @Description Ответ с карточкой студии.
 type StudioResponse struct {
-	OK   bool          `json:"ok" example:"true"`
-	Data sqlite.Studio `json:"data"`
+	OK   bool         `json:"ok" example:"true"`
+	Data store.Studio `json:"data"`
 }
 
 // MessagesResponse каталог заменяемых текстов.
 // @Description Каталог заменяемых текстов.
 type MessagesResponse struct {
-	OK   bool                     `json:"ok" example:"true"`
-	Data []sqlite.MessageTemplate `json:"data"`
+	OK   bool                    `json:"ok" example:"true"`
+	Data []store.MessageTemplate `json:"data"`
 }
 
 // MessageResponse один заменяемый текст.
 // @Description Один заменяемый текст.
 type MessageResponse struct {
-	OK   bool                   `json:"ok" example:"true"`
-	Data sqlite.MessageTemplate `json:"data"`
+	OK   bool                  `json:"ok" example:"true"`
+	Data store.MessageTemplate `json:"data"`
 }
 
 // ClassResponse ответ с одним занятием.
 // @Description Ответ с одним занятием.
 type ClassResponse struct {
-	OK   bool             `json:"ok" example:"true"`
-	Data sqlite.ClassView `json:"data"`
+	OK   bool            `json:"ok" example:"true"`
+	Data store.ClassView `json:"data"`
 }
 
 // ClassesResponse ответ со списком занятий по starts_at.
 // @Description Ответ со списком занятий по starts_at.
 type ClassesResponse struct {
-	OK   bool               `json:"ok" example:"true"`
-	Data []sqlite.ClassView `json:"data"`
+	OK   bool              `json:"ok" example:"true"`
+	Data []store.ClassView `json:"data"`
 }
 
 // PublicTrainersResponse список активных тренеров.
 // @Description Список активных тренеров.
 type PublicTrainersResponse struct {
-	OK   bool                   `json:"ok" example:"true"`
-	Data []sqlite.PublicTrainer `json:"data"`
+	OK   bool                  `json:"ok" example:"true"`
+	Data []store.PublicTrainer `json:"data"`
 }
 
 // PublicTrainerResponse одна публичная карточка тренера.
 // @Description Одна публичная карточка тренера.
 type PublicTrainerResponse struct {
-	OK   bool                 `json:"ok" example:"true"`
-	Data sqlite.PublicTrainer `json:"data"`
+	OK   bool                `json:"ok" example:"true"`
+	Data store.PublicTrainer `json:"data"`
 }
 
 // ClientNamesResponse короткие имена для выбора клиента.
 // @Description Короткие имена для выбора клиента.
 type ClientNamesResponse struct {
-	OK   bool                `json:"ok" example:"true"`
-	Data []sqlite.ClientName `json:"data"`
+	OK   bool               `json:"ok" example:"true"`
+	Data []store.ClientName `json:"data"`
 }
 
 // MeResponse ответ с профилем.
 // @Description Ответ с профилем.
 type MeResponse struct {
-	OK   bool      `json:"ok" example:"true"`
-	Data sqlite.Me `json:"data"`
+	OK   bool     `json:"ok" example:"true"`
+	Data store.Me `json:"data"`
 }
 
 // BookedResponse запись создана. Баланс в этом ответе ещё прежний.
 // @Description Запись создана. Баланс в этом ответе ещё прежний.
 type BookedResponse struct {
-	OK        bool             `json:"ok" example:"true"`
-	BookingID string           `json:"booking_id" example:"6ba7b814-9dad-11d1-80b4-00c04fd430c8"`
-	Balance   int              `json:"balance" example:"4"`
-	Class     sqlite.ClassView `json:"class"`
+	OK        bool            `json:"ok" example:"true"`
+	BookingID string          `json:"booking_id" example:"6ba7b814-9dad-11d1-80b4-00c04fd430c8"`
+	Balance   int             `json:"balance" example:"4"`
+	Class     store.ClassView `json:"class"`
 }
 
 // OpenedResponse отметка открытия приложения принята.
@@ -152,15 +152,15 @@ type OpenedResponse struct {
 // MyBookingsResponse будущие записи клиента.
 // @Description Будущие записи клиента.
 type MyBookingsResponse struct {
-	OK   bool               `json:"ok" example:"true"`
-	Data []sqlite.MyBooking `json:"data"`
+	OK   bool              `json:"ok" example:"true"`
+	Data []store.MyBooking `json:"data"`
 }
 
 // VisitsResponse история посещений, новые сверху.
 // @Description История посещений, новые сверху.
 type VisitsResponse struct {
-	OK   bool           `json:"ok" example:"true"`
-	Data []sqlite.Visit `json:"data"`
+	OK   bool          `json:"ok" example:"true"`
+	Data []store.Visit `json:"data"`
 }
 
 // CancelledResponse запись отменена.
@@ -173,51 +173,51 @@ type CancelledResponse struct {
 // RescheduledResponse запись перенесена на другое занятие.
 // @Description Запись перенесена на другое занятие.
 type RescheduledResponse struct {
-	OK        bool             `json:"ok" example:"true"`
-	BookingID string           `json:"booking_id" example:"6ba7b814-9dad-11d1-80b4-00c04fd430c8"`
-	Class     sqlite.ClassView `json:"class"`
+	OK        bool            `json:"ok" example:"true"`
+	BookingID string          `json:"booking_id" example:"6ba7b814-9dad-11d1-80b4-00c04fd430c8"`
+	Class     store.ClassView `json:"class"`
 }
 
 // TrainersResponse список тренеров.
 // @Description Список тренеров.
 type TrainersResponse struct {
-	OK   bool             `json:"ok" example:"true"`
-	Data []sqlite.Trainer `json:"data"`
+	OK   bool            `json:"ok" example:"true"`
+	Data []store.Trainer `json:"data"`
 }
 
 // TrainerResponse один тренер.
 // @Description Один тренер.
 type TrainerResponse struct {
-	OK   bool           `json:"ok" example:"true"`
-	Data sqlite.Trainer `json:"data"`
+	OK   bool          `json:"ok" example:"true"`
+	Data store.Trainer `json:"data"`
 }
 
 // TypesResponse список видов занятий.
 // @Description Список видов занятий.
 type TypesResponse struct {
-	OK   bool                  `json:"ok" example:"true"`
-	Data []sqlite.TrainingType `json:"data"`
+	OK   bool                 `json:"ok" example:"true"`
+	Data []store.TrainingType `json:"data"`
 }
 
 // TypeResponse один вид занятия.
 // @Description Один вид занятия.
 type TypeResponse struct {
-	OK   bool                `json:"ok" example:"true"`
-	Data sqlite.TrainingType `json:"data"`
+	OK   bool               `json:"ok" example:"true"`
+	Data store.TrainingType `json:"data"`
 }
 
 // TemplatesResponse список шаблонов.
 // @Description Список шаблонов.
 type TemplatesResponse struct {
-	OK   bool              `json:"ok" example:"true"`
-	Data []sqlite.Template `json:"data"`
+	OK   bool             `json:"ok" example:"true"`
+	Data []store.Template `json:"data"`
 }
 
 // TemplateResponse один шаблон.
 // @Description Один шаблон.
 type TemplateResponse struct {
-	OK   bool            `json:"ok" example:"true"`
-	Data sqlite.Template `json:"data"`
+	OK   bool           `json:"ok" example:"true"`
+	Data store.Template `json:"data"`
 }
 
 // WeekResponse итог генерации недели. Поля лежат рядом с ok, не внутри data.
@@ -233,59 +233,59 @@ type WeekResponse struct {
 // RosterResponse журнал занятия.
 // @Description Журнал занятия.
 type RosterResponse struct {
-	OK   bool          `json:"ok" example:"true"`
-	Data sqlite.Roster `json:"data"`
+	OK   bool         `json:"ok" example:"true"`
+	Data store.Roster `json:"data"`
 }
 
 // AttendanceResponse явка после отметки. attendance равен null, если активной явки нет.
 // @Description Явка после отметки. attendance равен null, если активной явки нет.
 type AttendanceResponse struct {
-	OK         bool                   `json:"ok" example:"true"`
-	BookingID  string                 `json:"booking_id" example:"6ba7b814-9dad-11d1-80b4-00c04fd430c8"`
-	Attendance *sqlite.AttendanceView `json:"attendance" extensions:"x-nullable"`
-	Balance    int                    `json:"balance" example:"3"`
+	OK         bool                  `json:"ok" example:"true"`
+	BookingID  string                `json:"booking_id" example:"6ba7b814-9dad-11d1-80b4-00c04fd430c8"`
+	Attendance *store.AttendanceView `json:"attendance" extensions:"x-nullable"`
+	Balance    int                   `json:"balance" example:"3"`
 }
 
 // ClientsResponse список клиентов.
 // @Description Список клиентов.
 type ClientsResponse struct {
-	OK   bool                   `json:"ok" example:"true"`
-	Data []sqlite.ClientSummary `json:"data"`
+	OK   bool                  `json:"ok" example:"true"`
+	Data []store.ClientSummary `json:"data"`
 }
 
 // ClientResponse карточка клиента.
 // @Description Карточка клиента.
 type ClientResponse struct {
-	OK   bool              `json:"ok" example:"true"`
-	Data sqlite.ClientCard `json:"data"`
+	OK   bool             `json:"ok" example:"true"`
+	Data store.ClientCard `json:"data"`
 }
 
 // StatsResponse сводка периода.
 // @Description Сводка периода.
 type StatsResponse struct {
-	OK   bool         `json:"ok" example:"true"`
-	Data sqlite.Stats `json:"data"`
+	OK   bool        `json:"ok" example:"true"`
+	Data store.Stats `json:"data"`
 }
 
 // EnrollmentsResponse активные шаблоны и отметки клиента.
 // @Description Активные шаблоны и отметки клиента.
 type EnrollmentsResponse struct {
-	OK   bool                      `json:"ok" example:"true"`
-	Data []sqlite.EnrollmentOption `json:"data"`
+	OK   bool                     `json:"ok" example:"true"`
+	Data []store.EnrollmentOption `json:"data"`
 }
 
 // TrainerDetailResponse карточка тренера.
 // @Description Карточка тренера.
 type TrainerDetailResponse struct {
-	OK   bool                 `json:"ok" example:"true"`
-	Data sqlite.TrainerDetail `json:"data"`
+	OK   bool                `json:"ok" example:"true"`
+	Data store.TrainerDetail `json:"data"`
 }
 
 // TrainerStatsResponse сводка тренера.
 // @Description Сводка тренера.
 type TrainerStatsResponse struct {
-	OK   bool                `json:"ok" example:"true"`
-	Data sqlite.TrainerStats `json:"data"`
+	OK   bool               `json:"ok" example:"true"`
+	Data store.TrainerStats `json:"data"`
 }
 
 // OKResponse успешный вызов без данных.

@@ -1,4 +1,21 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aero
+      POSTGRES_PASSWORD: aero
+      POSTGRES_DB: aero
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aero -d aero"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
   aero:
     build: .
     image: aero:local
@@ -8,11 +25,15 @@ services:
       ADMIN_IDS: ${ADMIN_IDS:-}
       CORS_ORIGIN: ${CORS_ORIGIN:-}
       ADDR: 0.0.0.0:8181
-      DATA_PATH: /data/aero.db
+      DATABASE_URL: postgres://aero:aero@postgres:5432/aero?sslmode=disable
+      BACKUP_DIR: /backups
     ports:
       - "8181:8181"
     volumes:
-      - aero-data:/data
+      - aero-backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -28,12 +49,15 @@ services:
     image: aero:local
     profiles: ["seed"]
     environment:
-      DATA_PATH: /data/aero.db
+      DATABASE_URL: postgres://aero:aero@postgres:5432/aero?sslmode=disable
     volumes:
-      - aero-data:/data
       - ./sql/seed_data.sql:/seed/seed_data.sql:ro
     command: ["seed", "/seed/seed_data.sql"]
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: "no"
 
 volumes:
-  aero-data:
+  postgres-data:
+  aero-backups:

@@ -27,8 +27,8 @@ export function pricingError(raw: string): string {
     if (!allowed.has(key)) return 'В прайсе можно указать только base, aero, kids и personal'
     if (!value || typeof value !== 'object' || Array.isArray(value)) return 'Раздел прайса должен быть объектом'
     for (const [label, price] of Object.entries(value)) {
-      if (!label.trim() || label !== label.trim() || typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {
-        return 'В прайсе нужны положительные числа'
+      if (!label.trim() || label !== label.trim() || typeof price !== 'number' || !Number.isInteger(price) || price <= 0) {
+        return 'В прайсе нужны целые положительные числа'
       }
     }
   }

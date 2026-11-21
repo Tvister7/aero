@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/Tvister7/aero/internal/domain"
-	"github.com/Tvister7/aero/internal/sqlite"
+	"github.com/Tvister7/aero/internal/store"
 	"github.com/Tvister7/aero/internal/telegram"
 )
 
@@ -274,14 +274,14 @@ func (s *Server) enrollments(w http.ResponseWriter, r *http.Request, user telegr
 // @Description Список заменяет отметки целиком. Отмена одной уже созданной записи отметку не снимает.
 // @Tags Клиент
 // @Security TMA
-// @Param body body sqlite.EnrollmentInput true "Отмеченные шаблоны"
+// @Param body body store.EnrollmentInput true "Отмеченные шаблоны"
 // @Success 200 {object} EnrollmentsResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
 // @Failure 500 {object} ErrorBody
 // @Router /me/enrollments [put]
 func (s *Server) putEnrollments(w http.ResponseWriter, r *http.Request, user telegram.User) {
-	var body sqlite.EnrollmentInput
+	var body store.EnrollmentInput
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return

@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Tvister7/aero/internal/domain"
-	"github.com/Tvister7/aero/internal/sqlite"
+	"github.com/Tvister7/aero/internal/store"
 	"github.com/Tvister7/aero/internal/telegram"
 )
 
@@ -36,7 +36,7 @@ func (s *Server) trainerCard(w http.ResponseWriter, r *http.Request, _ telegram.
 // @Tags Админ
 // @Security TMA
 // @Param id path string true "Идентификатор тренера"
-// @Param body body sqlite.AbsenceInput true "Даты включительно"
+// @Param body body store.AbsenceInput true "Даты включительно"
 // @Success 200 {object} TrainerDetailResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -44,7 +44,7 @@ func (s *Server) trainerCard(w http.ResponseWriter, r *http.Request, _ telegram.
 // @Failure 500 {object} ErrorBody
 // @Router /admin/trainers/{id}/absences [post]
 func (s *Server) addAbsence(w http.ResponseWriter, r *http.Request, _ telegram.User) {
-	var body sqlite.AbsenceInput
+	var body store.AbsenceInput
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
@@ -146,7 +146,7 @@ func (s *Server) trainerHome(w http.ResponseWriter, r *http.Request, _ telegram.
 // @Summary Изменить свою карточку
 // @Tags Тренер
 // @Security TMA
-// @Param body body sqlite.TrainerProfile true "Текст и телефон"
+// @Param body body store.TrainerProfile true "Текст и телефон"
 // @Success 200 {object} TrainerResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -154,7 +154,7 @@ func (s *Server) trainerHome(w http.ResponseWriter, r *http.Request, _ telegram.
 // @Failure 500 {object} ErrorBody
 // @Router /trainer [patch]
 func (s *Server) patchTrainerSelf(w http.ResponseWriter, r *http.Request, _ telegram.User, trainerID string) {
-	var body sqlite.TrainerProfile
+	var body store.TrainerProfile
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
@@ -216,7 +216,7 @@ func (s *Server) trainerTypes(w http.ResponseWriter, r *http.Request, _ telegram
 // @Description trainer_id из тела игнорируется: слот всегда принадлежит этому тренеру.
 // @Tags Тренер
 // @Security TMA
-// @Param body body sqlite.ClassInput true "Тип и начало"
+// @Param body body store.ClassInput true "Тип и начало"
 // @Success 200 {object} ClassResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -224,7 +224,7 @@ func (s *Server) trainerTypes(w http.ResponseWriter, r *http.Request, _ telegram
 // @Failure 500 {object} ErrorBody
 // @Router /trainer/classes [post]
 func (s *Server) trainerCreateClass(w http.ResponseWriter, r *http.Request, _ telegram.User, trainerID string) {
-	var body sqlite.ClassInput
+	var body store.ClassInput
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
@@ -375,7 +375,7 @@ func (s *Server) trainerClients(w http.ResponseWriter, r *http.Request, _ telegr
 // @Description Клиент назначается сразу. В общем расписании слота нет. trainer_id из тела игнорируется.
 // @Tags Тренер
 // @Security TMA
-// @Param body body sqlite.IndividualInput true "Клиент и начало"
+// @Param body body store.IndividualInput true "Клиент и начало"
 // @Success 200 {object} ClassResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -384,7 +384,7 @@ func (s *Server) trainerClients(w http.ResponseWriter, r *http.Request, _ telegr
 // @Failure 500 {object} ErrorBody
 // @Router /trainer/individuals [post]
 func (s *Server) trainerCreateIndividual(w http.ResponseWriter, r *http.Request, _ telegram.User, trainerID string) {
-	var body sqlite.IndividualInput
+	var body store.IndividualInput
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
@@ -403,7 +403,7 @@ func (s *Server) trainerCreateIndividual(w http.ResponseWriter, r *http.Request,
 // @Tags Тренер
 // @Security TMA
 // @Param id path string true "Идентификатор занятия"
-// @Param body body sqlite.ClassPatch true "Новое начало"
+// @Param body body store.ClassPatch true "Новое начало"
 // @Success 200 {object} ClassResponse
 // @Failure 400 {object} ErrorBody
 // @Failure 401 {object} ErrorBody
@@ -413,7 +413,7 @@ func (s *Server) trainerCreateIndividual(w http.ResponseWriter, r *http.Request,
 // @Failure 500 {object} ErrorBody
 // @Router /trainer/classes/{id} [patch]
 func (s *Server) trainerMoveClass(w http.ResponseWriter, r *http.Request, _ telegram.User, trainerID string) {
-	var body sqlite.ClassPatch
+	var body store.ClassPatch
 	if err := readJSON(r, &body); err != nil {
 		writeDomain(w, err)
 		return
