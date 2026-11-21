@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getMe, listEnrollments, patchMe, putEnrollments } from '../api'
+  import Notice from '../lib/Notice.svelte'
   import { balanceText, policyText, weekdayName } from '../lib/text'
 
   let me = $derived(getMe())
@@ -8,13 +9,14 @@
   let filled = $state(false)
 
   $effect(() => {
-    if (filled || me.pending || !me.data) return
+    if (filled || me.status !== 'ready') return
     name = me.data.name ?? ''
     phone = me.data.phone ?? ''
     filled = true
   })
 
-  let options = $derived(listEnrollments().data)
+  let enrollment = $derived(listEnrollments())
+  let options = $derived(enrollment.status === 'ready' ? enrollment.data : [])
   let query = $state('')
   let enrolled = $derived(options.filter((item) => item.enrolled))
   let found = $derived.by(() => {
@@ -42,6 +44,11 @@
   }
 </script>
 
+{#if me.status === 'pending'}
+  <Notice kind="pending" />
+{:else if me.status === 'error'}
+  <Notice kind="error" message={me.message} reload={me.reload} />
+{:else}
 <article class="card">
   <p class="muted">Баланс</p>
   <p class="balance" data-testid="balance">{balanceText(me.data.balance)}</p>
@@ -62,15 +69,21 @@
   <label for="profile-phone">Телефон</label>
   <input id="profile-phone" bind:value={phone} />
   <button class="primary" type="submit">Сохранить</button>
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error}<Notice kind="error" message={error} />{/if}
 </form>
 
 <section>
   <h2 class="day">Постоянные записи</h2>
-  {#if enrollError}<p class="card error">{enrollError}</p>{/if}
-  {#if options.length === 0}
+  {#if enrollment.status === 'pending'}
+    <Notice kind="pending" />
+  {:else if enrollment.status === 'error'}
+    <Notice kind="error" message={enrollment.message} reload={enrollment.reload} />
+  {:else if enrollError}
+    <Notice kind="error" message={enrollError} />
+  {/if}
+  {#if enrollment.status === 'ready' && options.length === 0}
     <p class="card muted">Активных шаблонов нет.</p>
-  {:else if enrolled.length === 0}
+  {:else if enrollment.status === 'ready' && enrolled.length === 0}
     <p class="card muted">Постоянных записей нет.</p>
   {/if}
   {#each enrolled as slot (slot.template_id)}
@@ -100,3 +113,4 @@
     </article>
   {/each}
 </section>
+{/if}

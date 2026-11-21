@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, tick } from 'svelte'
   import { getAdminSchedule, getSchedule } from '../api'
+  import Notice from '../lib/Notice.svelte'
   import { shownColor } from '../lib/color'
   import { singlePrice } from '../lib/text'
   import {
@@ -30,10 +31,11 @@
     mode === 'week' ? { from: start, to: end } : { from: bounds.start, to: bounds.end },
   )
   let result = $derived(admin ? getAdminSchedule(range.from, range.to) : getSchedule(range.from, range.to))
-  let bookableId = $derived(result.data.find((item) => item.free_places > 0 && hoursUntil(item.starts_at) > 6)?.id)
+  let classes = $derived(result.status === 'ready' ? result.data : [])
+  let bookableId = $derived(classes.find((item) => item.free_places > 0 && hoursUntil(item.starts_at) > 6)?.id)
   let byDay = $derived.by(() => {
-    const map = new Map<string, typeof result.data>()
-    for (const item of result.data) {
+    const map = new Map<string, typeof classes>()
+    for (const item of classes) {
       const key = dateKeyOfIso(item.starts_at)
       const list = map.get(key) ?? []
       list.push(item)
@@ -42,7 +44,7 @@
     return map
   })
   let weekDays = $derived(Array.from({ length: 7 }, (_, index) => addDays(start, index)))
-  let legend = $derived(dayMarks(result.data))
+  let legend = $derived(dayMarks(classes))
   let openedDay = $state('')
   let origin: { x: number; y: number; id: number } | null = null
   let swiped = false
@@ -132,8 +134,12 @@
 </div>
 
 <div class="schedule" role="region" aria-label="Расписание" onpointerdown={beginGesture} onclickcapture={swallowClick}>
-{#if mode === 'week'}
-  {#if !result.pending && result.data.length === 0 && !openedDay}
+{#if result.status === 'pending'}
+  <Notice kind="pending" />
+{:else if result.status === 'error'}
+  <Notice kind="error" message={result.message} reload={result.reload} />
+{:else if mode === 'week'}
+  {#if classes.length === 0 && !openedDay}
     <p class="card muted">На этой неделе занятий нет.</p>
   {/if}
   {#each weekDays as day (day)}
@@ -195,7 +201,7 @@
 {/if}
 </div>
 
-{#snippet slot(item: (typeof result.data)[number])}
+{#snippet slot(item: (typeof classes)[number])}
   <strong>{item.title}</strong>
   <span class="meta">{formatWhen(item.starts_at)}{#if item.trainer.name} · {item.trainer.name}{/if}</span>
   {#if item.kind !== 'hold'}

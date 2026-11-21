@@ -1,8 +1,11 @@
 <script lang="ts">
   import { createClass, createHold, createIndividual, listClients, listTrainers, listTypes } from '../api'
+  import Notice from '../lib/Notice.svelte'
 
-  let trainers = $derived(listTrainers().data.filter((item) => item.active))
-  let types = $derived(listTypes().data.filter((item) => item.active))
+  let trainerLoad = $derived(listTrainers())
+  let typeLoad = $derived(listTypes())
+  let trainers = $derived(trainerLoad.status === 'ready' ? trainerLoad.data.filter((item) => item.active) : [])
+  let types = $derived(typeLoad.status === 'ready' ? typeLoad.data.filter((item) => item.active) : [])
   let trainerId = $state('')
   let typeId = $state('')
   let starts = $state('')
@@ -18,7 +21,8 @@
   let holdStart = $state('')
   let holdMinutes = $state('60')
   let holdNotice = $state('')
-  let clients = $derived(clientQuery.trim() ? listClients(clientQuery).data : [])
+  let clientLoad = $derived(clientQuery.trim() ? listClients(clientQuery) : null)
+  let clients = $derived(clientLoad?.status === 'ready' ? clientLoad.data : [])
 
   $effect(() => {
     if (!trainerId && trainers[0]) trainerId = trainers[0].id
@@ -64,6 +68,13 @@
   }
 </script>
 
+{#if trainerLoad.status === 'pending' || typeLoad.status === 'pending'}
+  <Notice kind="pending" />
+{:else if trainerLoad.status === 'error'}
+  <Notice kind="error" message={trainerLoad.message} reload={trainerLoad.reload} />
+{:else if typeLoad.status === 'error'}
+  <Notice kind="error" message={typeLoad.message} reload={typeLoad.reload} />
+{:else}
 <form class="card" onsubmit={submit}>
   <h2>Разовое занятие</h2>
   <label for="new-trainer">Тренер</label>
@@ -79,7 +90,7 @@
   <label for="new-capacity">Вместимость, если отличается</label>
   <input id="new-capacity" type="number" min="1" bind:value={capacity} />
   <button class="primary" type="submit">Создать</button>
-  {#if notice}<p>{notice}</p>{/if}
+  {#if notice}<Notice kind={notice.startsWith('Разовое') ? 'ok' : 'error'} message={notice} />{/if}
 </form>
 
 <form class="card" onsubmit={submitIndividual}>
@@ -100,7 +111,8 @@
   <label for="individual-minutes">Длительность, минуты</label>
   <input id="individual-minutes" type="number" min="1" max="600" bind:value={individualMinutes} />
   <button class="primary" type="submit">Назначить</button>
-  {#if individualNotice}<p>{individualNotice}</p>{/if}
+  {#if clientLoad?.status === 'error'}<Notice kind="error" message={clientLoad.message} reload={clientLoad.reload} />{/if}
+  {#if individualNotice}<Notice kind={individualNotice.startsWith('Индивидуальное') ? 'ok' : 'error'} message={individualNotice} />{/if}
 </form>
 
 <form class="card" onsubmit={submitHold}>
@@ -112,5 +124,6 @@
   <label for="hold-minutes">Длительность, минуты</label>
   <input id="hold-minutes" type="number" min="1" max="600" bind:value={holdMinutes} />
   <button class="primary" type="submit">Занять зал</button>
-  {#if holdNotice}<p>{holdNotice}</p>{/if}
+  {#if holdNotice}<Notice kind={holdNotice.startsWith('Время') ? 'ok' : 'error'} message={holdNotice} />{/if}
 </form>
+{/if}

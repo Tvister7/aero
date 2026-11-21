@@ -84,6 +84,12 @@ export function hoursUntil(iso: string): number {
   return (new Date(iso).getTime() - Date.now()) / 3600000
 }
 
+export const attendanceEarlyText = 'Отметить явку можно за 30 минут до начала'
+
+export function attendanceTooEarly(iso: string): boolean {
+  return hoursUntil(iso) > 0.5
+}
+
 export function formatShortDate(dateKey: string): string {
   const [, month, day] = dateKey.split('-')
   return `${day}.${month}`

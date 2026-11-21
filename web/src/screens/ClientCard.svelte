@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getClient, grantCredits, patchClient } from '../api'
+  import Notice from '../lib/Notice.svelte'
   import { balanceText, policyText } from '../lib/text'
   import { formatWhen } from '../lib/time'
 
@@ -19,8 +20,10 @@
   }
 </script>
 
-{#if !card.ok}
-  <p class="card error">{card.message}</p>
+{#if card.status === 'pending'}
+  <Notice kind="pending" />
+{:else if card.status === 'error'}
+  <Notice kind="error" message={card.message} reload={card.reload} />
 {:else}
   <article class="card">
     <h2>{card.data.name}</h2>
@@ -46,7 +49,7 @@
     <label for="note">Комментарий</label>
     <input id="note" bind:value={note} />
     <button class="primary" type="submit" data-testid="grant-submit">Начислить</button>
-    {#if error}<p class="error" data-testid="form-error">{error}</p>{/if}
+    {#if error}<Notice kind="error" message={error} testid="form-error" />{/if}
   </form>
   <h2 class="day">Проводки</h2>
   {#each card.data.ledger as row (row.id)}

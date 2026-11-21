@@ -19,6 +19,7 @@ import type {
   TrainerStats,
 } from './types'
 import { addDays, todayKey } from '../lib/time'
+import { type Load, ready } from './load'
 
 const CODES = new Set<ErrorCode>([
   'UNAUTHORIZED',
@@ -123,6 +124,27 @@ function refresh() {
   revision.n += 1
 }
 
+function forget(key: string) {
+  store.delete(key)
+  revision.n += 1
+}
+
+function read<T>(key: string, path: string, pick: (value: unknown) => T | null): Load<T> {
+  const value = cached(key, () => request('GET', path))
+  if (value === null) return { status: 'pending' }
+  if (!succeeded(value)) return { status: 'error', message: asError(value).message, reload: () => forget(key) }
+  const data = pick(value)
+  if (data === null) return { status: 'error', message: transportError().message, reload: () => forget(key) }
+  return ready(data)
+}
+
+let lastMe: Me | null = null
+
+export function knownMe(): Me | null {
+  void revision.n
+  return lastMe
+}
+
 async function request(method: string, path: string, body?: unknown): Promise<unknown> {
   const headers: Record<string, string> = {}
   const initData = window.Telegram?.WebApp?.initData
@@ -153,10 +175,8 @@ async function send(method: string, path: string, body?: unknown): Promise<unkno
   return value
 }
 
-function readList<T>(key: string, path: string): { ok: true; data: T[]; pending: boolean } {
-  const value = cached(key, () => request('GET', path))
-  if (value === null) return { ok: true, data: [], pending: true }
-  return { ok: true, data: listOf<T>(value) ?? [], pending: false }
+function readList<T>(key: string, path: string): Load<T[]> {
+  return read(key, path, (value) => listOf<T>(value))
 }
 
 export function roleSwitchVisible() {
@@ -172,18 +192,11 @@ export function listPublicTrainers() {
 }
 
 export function getPublicTrainer(id: string) {
-  const value = cached('public-trainer:' + id, () => request('GET', `/trainers/${id}`))
-  const data = dataOf<PublicTrainer>(value)
-  if (data) return { ok: true as const, data, pending: false }
-  if (value && !succeeded(value)) return { ...asError(value), pending: false }
-  return { ok: false as const, error_code: 'VALIDATION' as const, message: '', pending: value === null }
+  return read<PublicTrainer>('public-trainer:' + id, `/trainers/${id}`, (value) => dataOf<PublicTrainer>(value))
 }
 
 export function getStudio() {
-  const value = cached('studio', () => request('GET', '/studio'))
-  const data = dataOf<StudioProfile>(value)
-  if (data) return { ok: true as const, data, pending: false }
-  return { ok: true as const, data: emptyStudio, pending: value === null }
+  return read<StudioProfile>('studio', '/studio', (value) => dataOf<StudioProfile>(value) ?? (succeeded(value) ? emptyStudio : null))
 }
 
 export function getSchedule(from: string, to: string) {
@@ -195,21 +208,17 @@ export function getAdminSchedule(from: string, to: string) {
 }
 
 export function getClass(id: string) {
-  const value = cached('class:' + id, () => request('GET', `/classes/${id}`))
-  const data = dataOf<ClassView>(value)
-  if (data) return { ok: true as const, data }
-  if (value && !succeeded(value)) return asError(value)
-  return { ok: false as const, error_code: 'VALIDATION' as const, message: '' }
+  return read<ClassView>('class:' + id, `/classes/${id}`, (value) => dataOf<ClassView>(value))
 }
 
-export function getAdminClass(id: string) {
+export function getAdminClass(id: string): Load<ClassView> {
   const from = addDays(todayKey(), -120)
   const to = addDays(todayKey(), 240)
   const schedule = getAdminSchedule(from, to)
+  if (schedule.status !== 'ready') return schedule
   const found = schedule.data.find((item) => item.id === id)
-  if (found) return { ok: true as const, data: found }
-  if (schedule.pending) return { ok: false as const, error_code: 'VALIDATION' as const, message: '' }
-  return { ok: false as const, error_code: 'CLASS_NOT_FOUND' as const, message: 'Занятие не найдено' }
+  if (found) return ready(found)
+  return { status: 'error', message: 'Занятие не найдено', reload: () => forget('admin-schedule:' + from + ':' + to) }
 }
 
 export async function bookClass(id: string, body: { name?: string; phone?: string }) {
@@ -218,15 +227,18 @@ export async function bookClass(id: string, body: { name?: string; phone?: strin
   >
 }
 
-export function getMe() {
-  const value = cached('me', () => request('GET', '/me'))
+export function getMe(): Load<Me> {
+  const value = cached('me', async () => {
+    const payload = await request('GET', '/me')
+    const data = dataOf<Me>(payload)
+    if (data) lastMe = { ...emptyMe, ...data, visited: Boolean(data.visited) }
+    return payload
+  })
+  if (value === null) return { status: 'pending' }
   const data = dataOf<Me>(value)
-  if (!data) return { ok: true as const, data: emptyMe, pending: value === null }
-  return {
-    ok: true as const,
-    pending: false,
-    data: { ...emptyMe, ...data, visited: Boolean(data.visited) },
-  }
+  if (!data) return { status: 'error', message: asError(value).message, reload: () => forget('me') }
+  lastMe = { ...emptyMe, ...data, visited: Boolean(data.visited) }
+  return ready(lastMe)
 }
 
 export async function patchMe(body: { name?: string; phone?: string }) {
@@ -271,22 +283,11 @@ export async function patchTrainer(
   return send('PATCH', `/admin/trainers/${id}`, body) as Promise<ApiError | { ok: true; data: Trainer }>
 }
 
-const emptyTrainer: TrainerDetail = {
-  id: '',
-  name: '',
-  active: true,
-  about: '',
-  phone: '',
-  telegram_user_id: null,
-  absences: [],
-}
-
 export function getTrainer(id: string) {
-  const value = cached('trainer:' + id, () => request('GET', `/admin/trainers/${id}`))
-  const data = dataOf<TrainerDetail>(value)
-  if (data) return { ok: true as const, data: { ...data, absences: data.absences ?? [] }, pending: false }
-  if (value && !succeeded(value)) return asError(value)
-  return { ok: true as const, data: emptyTrainer, pending: value === null }
+  return read<TrainerDetail>('trainer:' + id, `/admin/trainers/${id}`, (value) => {
+    const data = dataOf<TrainerDetail>(value)
+    return data ? { ...data, absences: data.absences ?? [] } : null
+  })
 }
 
 export async function addAbsence(id: string, startsOn: string, endsOn: string) {
@@ -318,15 +319,7 @@ export async function putEnrollments(templateIds: string[]) {
 }
 
 export function getTrainerProfile() {
-  const value = cached('trainer-me', () => request('GET', '/trainer'))
-  const data = dataOf<Trainer>(value)
-  if (data) return { ok: true as const, data, pending: false }
-  if (value && !succeeded(value)) return asError(value)
-  return {
-    ok: true as const,
-    pending: value === null,
-    data: { id: '', name: '', active: true, about: '', phone: '', telegram_user_id: null },
-  }
+  return read<Trainer>('trainer-me', '/trainer', (value) => dataOf<Trainer>(value))
 }
 
 export async function patchTrainerProfile(body: { about: string; phone: string }) {
@@ -362,11 +355,7 @@ export async function cancelTrainerClass(id: string) {
 }
 
 export function getTrainerRoster(id: string) {
-  const value = cached('trainer-roster:' + id, () => request('GET', `/trainer/classes/${id}/roster`))
-  const data = dataOf<RosterData>(value)
-  if (data) return { ok: true as const, data }
-  if (value && !succeeded(value)) return asError(value)
-  return { ok: false as const, error_code: 'VALIDATION' as const, message: '' }
+  return read<RosterData>('trainer-roster:' + id, `/trainer/classes/${id}/roster`, (value) => dataOf<RosterData>(value))
 }
 
 export async function setTrainerAttendance(bookingId: string, arrived: boolean) {
@@ -375,10 +364,8 @@ export async function setTrainerAttendance(bookingId: string, arrived: boolean) 
   >
 }
 
-export function trainerStats(from: string, to: string): { ok: true; data: TrainerStats } {
-  const value = cached('trainer-stats:' + from + ':' + to, () => request('GET', `/trainer/stats?from=${from}&to=${to}`))
-  const data = dataOf<TrainerStats>(value)
-  return { ok: true, data: data ?? { from, to, clients: 0, attends: 0 } }
+export function trainerStats(from: string, to: string): Load<TrainerStats> {
+  return read('trainer-stats:' + from + ':' + to, `/trainer/stats?from=${from}&to=${to}`, (value) => dataOf<TrainerStats>(value))
 }
 
 export function listTypes() {
@@ -473,11 +460,7 @@ export async function patchClass(
 }
 
 export function getRoster(id: string) {
-  const value = cached('roster:' + id, () => request('GET', `/admin/classes/${id}/roster`))
-  const data = dataOf<RosterData>(value)
-  if (data) return { ok: true as const, data }
-  if (value && !succeeded(value)) return asError(value)
-  return { ok: false as const, error_code: 'VALIDATION' as const, message: '' }
+  return read<RosterData>('roster:' + id, `/admin/classes/${id}/roster`, (value) => dataOf<RosterData>(value))
 }
 
 export async function setAttendance(bookingId: string, arrived: boolean) {
@@ -492,11 +475,9 @@ export function listClients(query = '') {
 }
 
 export function getClient(id: string) {
-  const value = cached('client:' + id, () => request('GET', `/admin/clients/${id}`))
-  const data = dataOf<ClientSummary & { ledger: Array<{ id: string; delta: number; reason: 'grant' | 'attend' | 'reversal'; note: string; booking_id: string | null; created_at: string }> }>(value)
-  if (data) return { ok: true as const, data }
-  if (value && !succeeded(value)) return asError(value)
-  return { ok: false as const, error_code: 'VALIDATION' as const, message: '' }
+  return read('client:' + id, `/admin/clients/${id}`, (value) =>
+    dataOf<ClientSummary & { ledger: Array<{ id: string; delta: number; reason: 'grant' | 'attend' | 'reversal'; note: string; booking_id: string | null; created_at: string }> }>(value),
+  )
 }
 
 export async function patchClient(id: string, policy: 'postpay' | 'restricted') {
@@ -509,22 +490,8 @@ export async function grantCredits(id: string, delta: number, note?: string) {
   >
 }
 
-export function stats(from: string, to: string): { ok: true; data: Stats } {
-  const value = cached('stats:' + from + ':' + to, () => request('GET', `/admin/stats?from=${from}&to=${to}`))
-  const data = dataOf<Stats>(value)
-  return {
-    ok: true,
-    data: data ?? {
-      from,
-      to,
-      unique_users: 0,
-      bookings_created: 0,
-      bookings_cancelled: 0,
-      arrivals: 0,
-      no_shows: 0,
-      unpaid_visits: 0,
-    },
-  }
+export function stats(from: string, to: string): Load<Stats> {
+  return read('stats:' + from + ':' + to, `/admin/stats?from=${from}&to=${to}`, (value) => dataOf<Stats>(value))
 }
 
 export async function clientsCsv() {
@@ -536,12 +503,16 @@ export async function putStudio(body: Partial<StudioProfile>) {
   return send('PUT', '/admin/studio', body) as Promise<ApiError | { ok: true; data: StudioProfile }>
 }
 
-export function todayRoster(): RosterData[] {
+export function todayRoster(): Load<RosterData[]> {
   const today = todayKey()
   const schedule = getAdminSchedule(today, today)
-  return schedule.data.flatMap((item) => {
-    if (item.status === 'cancelled' || item.kind === 'hold') return []
+  if (schedule.status !== 'ready') return schedule
+  const rows: RosterData[] = []
+  for (const item of schedule.data) {
+    if (item.status === 'cancelled' || item.kind === 'hold') continue
     const roster = getRoster(item.id)
-    return roster.ok ? [roster.data] : []
-  })
+    if (roster.status !== 'ready') return roster
+    rows.push(roster.data)
+  }
+  return ready(rows)
 }

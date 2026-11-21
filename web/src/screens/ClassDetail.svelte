@@ -1,5 +1,6 @@
 <script lang="ts">
   import { bookClass, getClass, getMe } from '../api'
+  import Notice from '../lib/Notice.svelte'
   import { formatWhen, hoursUntil } from '../lib/time'
   import { balanceText, singlePrice } from '../lib/text'
 
@@ -13,7 +14,7 @@
   let done = $state('')
 
   $effect(() => {
-    if (filled || me.pending || !me.data) return
+    if (filled || me.status !== 'ready') return
     name = me.data.name ?? ''
     phone = me.data.phone ?? ''
     filled = true
@@ -32,8 +33,10 @@
   }
 </script>
 
-{#if !card.ok}
-  {#if card.message}<p class="card error">{card.message}</p>{/if}
+{#if card.status === 'pending'}
+  <Notice kind="pending" />
+{:else if card.status === 'error'}
+  <Notice kind="error" message={card.message} reload={card.reload} />
 {:else}
   <article class="card">
     <h2>{card.data.title}</h2>
@@ -44,7 +47,7 @@
     {#if singlePrice(card.data.price_max)}
       <p class="price">стоимость {singlePrice(card.data.price_max)}</p>
     {/if}
-    {#if me.data.visited && me.data.balance <= 0}
+    {#if me.status === 'ready' && me.data.visited && me.data.balance <= 0}
       <p data-testid="empty-balance">На балансе нет занятий.</p>
     {/if}
   </article>
@@ -58,8 +61,8 @@
     <label for="phone">Телефон</label>
     <input id="phone" bind:value={phone} autocomplete="tel" />
     <button class="primary" type="submit" data-testid="book-submit">Записаться</button>
-    {#if error}<p class="error" data-testid="form-error">{error}</p>{/if}
-    {#if done}<p data-testid="book-done">{done}</p>{/if}
+    {#if error}<Notice kind="error" message={error} testid="form-error" />{/if}
+    {#if done}<p class="notice ok" data-testid="book-done">{done}</p>{/if}
   </form>
   {/if}
 {/if}

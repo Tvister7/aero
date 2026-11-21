@@ -35,6 +35,7 @@ export const {
   getTrainerRoster,
   getTrainerSchedule,
   grantCredits,
+  knownMe,
   listClients,
   listPublicTrainers,
   moveTrainerClass,
